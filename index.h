@@ -56,7 +56,7 @@ const char *indexStr = QUOTE(
   <div id="chart-temperature" class="container"></div>
 </body>
 <script>
-var chartT = new Highcharts.Chart({
+/*var chartT = new Highcharts.Chart({
   chart:{ renderTo : 'chart-temperature' },
   title: { text: 'Water level' },
   series: [{
@@ -74,12 +74,11 @@ var chartT = new Highcharts.Chart({
   },
   yAxis: {
     title: { text: 'Water level [ l ]' }
-    //title: { text: 'Temperature (Fahrenheit)' }
   },
   credits: { enabled: false }
-});
+});*/
 
-setInterval(function ( ) {
+/*setInterval(function ( ) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
@@ -94,7 +93,7 @@ setInterval(function ( ) {
   };
   xhttp.open("GET", "/currentLevel", true);
   xhttp.send();
-}, 3000 ) ;
+}, 3000 ) ;*/
 function sexToTmStr(sexStr) {
   var sex = parseInt(sexStr);
   hours = ~~(sex/3600);

@@ -1,399 +1,164 @@
+#define EEPROM_SIZE 100             /// EEPROM size, non volatile memory for storing averages and statistics when power is cut
+#define _mainLoopDelay 50           /// delay for non precise timing, to limit Display and EEPROM writes
+#define CAP_SENS_PIN 13             /// Capacitive sensor pin
+#define LED_BLUE 32                 /// blue LED pin
+#define LED_GREEN 33                /// green LED pin
+
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include <SPIFFS.h>
+//#include <SPIFFS.h>
 #include <EEPROM.h>
 
-#include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include "index.h"
+#include <DNSServer.h>          /// needed for captive AP
+#include <AsyncTCP.h>
 
-#define EEPROM_SIZE 100 /// set this
 
-#define _mainLoopDelay 50 /// delay for non precise timing, to limit Display and EEPROM writes
+//#include <Wire.h>
+//#include <Adafruit_Sensor.h>
+#include "index.h"              /// file containing html for web interface
+#include "max7219.h"            /// containing methods for displaying stuff on 8x 7seg display
+#include "liquidLevel.h"        /// containing liquid level class for processing cap. sensor data
 
 // Replace with your network credentials
-const char* ssid = "*****";
-const char* password = "*****";
+const char* ssid = "";
+const char* password = "";
 
-// Create AsyncWebServer object on port 80
-AsyncWebServer server(80);
+const char* hotspotSSID = "Water level sensor";   /// ESP hotspot name
+const char* hotspotPasswd= "123456789";           /// ESP hotspot passwd
+
+DNSServer dnsServer;                              /// create DNS server
+AsyncWebServer server(80);                        /// create webserver on port 80 - AsyncWebServer
+
+class CaptiveRequestHandler : public AsyncWebHandler {  /// Captive access point class
+public:
+  CaptiveRequestHandler() {}
+  virtual ~CaptiveRequestHandler() {}
+
+  bool canHandle(AsyncWebServerRequest *request){
+    //request->addInterestingHeader("ANY");
+    return true;
+  }
+
+  void handleRequest(AsyncWebServerRequest *request) {
+    Serial.print("request for: ");
+    Serial.print(request->host().c_str());
+    Serial.print(" ");
+    Serial.println(request->url().c_str());
+
+    request->send(200, "text/html", String(indexStr).c_str());
+  }
+};
 
 
-volatile double levelSensPulses = 0;
+volatile double levelSensPulses = 0;          /// pulses measured from capacitive sensor
 volatile double rawPulse = 0;
 volatile double newReading = -1;
 
 /// TIMER ISR SETUP
 hw_timer_t * timer = NULL;
 
-
-class LiquidLevel{
-  #define _totalOutH 0
-  #define _totalOutL 1
-  
-  private:
-    double fullLiters;
-    double emptyLiters;
-    double fullFreq;
-    double emptyFreq;
-
-    double freq = -1;
-    double dt = -1;
-    double sensorFreq = -1;
-    bool updateValues = false;
-
-    double tankLiters = -1;
-    double prevFilteredLiters = -1;
-    double dLiters = 0;
-    double filteredLiters = -1;
-    double percent = -1;
-    double flow = 0;
-    double ttEdge = 0;
-
-    double totalWaterOut = 0;
-    double totalWaterOutFLSH = 0;
-    double avrgOutFlow=0;
-    unsigned int dischStartTm = 0;
-    unsigned int lastFilledTime = 0;
-    unsigned int lastFillDuration =0;
-
-    float logIntervalCounter = 0;
-
-    double litersKFiltered(double dist) {
-
-      const double R = 10;   /// measurement noise
-      const double H = 1;
-      static double Q = 0.1;   /// initial covariance
-      static double P = 0;    /// init. error covariance
-      static double K = 0;    /// init. Kalman gain
-      static double distBar = -1;     /// est. variable
-
-      const double hist = 5;
-
-      if (distBar == -1) {
-        distBar = dist;
-      }
-      if(abs(distBar - dist) < hist){
-        return distBar;
-      }
-
-      K = P * H / (H * H * P + R);
-      distBar = distBar + K * (dist - H * distBar);
-      P = (1 - K * H) * P + Q;
-      return distBar;
-    }
-    double flowKFiltered(double dist) {
-
-      const double R = 100;   /// measurement noise
-      const double H = 1;
-      static double Q = 0.1;   /// initial covariance
-      static double P = 0;    /// init. error covariance
-      static double K = 0;    /// init. Kalman gain
-      static double distBar = -1;     /// est. variable
-
-      //const double hist = 5;
-
-      if (distBar == -1) {
-        distBar = dist;
-      }
-      /*if(abs(distBar - dist) < hist){
-        return distBar;
-      }*/
-
-      K = P * H / (H * H * P + R);
-      distBar = distBar + K * (dist - H * distBar);
-      P = (1 - K * H) * P + Q;
-
-      if(distBar > 1000){
-        return 1000;
-      }
-      return distBar;
-    }
-    double calcRunningAvrg(double newSensReading){
-      const int _NumOfHistory = 150;         /// array for average filtering
-      static double lastNreadings[_NumOfHistory];
-      static double average = 0;
-      double newAverage = 0;
-
-      for(int i=0; i< (_NumOfHistory -1); i++){
-        lastNreadings[i] = lastNreadings[i+1];
-        newAverage+=lastNreadings[i+1];
-      }
-      lastNreadings[(_NumOfHistory -1)] = newSensReading;
-      if(abs(newAverage/(_NumOfHistory-1) - newSensReading) > 0){
-        average = ((newAverage/(_NumOfHistory-1)) + newSensReading)/2;
-      }
-      else{
-        newAverage+= newSensReading;
-        newAverage/=_NumOfHistory;
-        average = newAverage;
-      }
-      
-      return average;
-    }
-  public:
-
-  LiquidLevel(double fullLiters, double emptyLiters, double fullFreq, double emptyFreq){
-    this->fullLiters = fullLiters;
-    this->emptyLiters = emptyLiters;
-    this->fullFreq = fullFreq;
-    this->emptyFreq = emptyFreq;
-  }
-  void setFreq(double freq, double dt){
-    /// Keep this short, runs in ISR
-    this->freq = freq;
-    this->dt = dt;
-    updateValues = true;
-    logIntervalCounter += (dt*1.0)/1000;
-  }
-  void saveToEEPROM(){
-    #define _maxLogRate 1
-    #define _minLogRate 60
-    #define _periodicLog false
-    static unsigned int minLogInterval = _maxLogRate * 60;
-
-    unsigned int logLimit = constrain(map(abs(flow),400,0,_maxLogRate * 60,_minLogRate * 60),_maxLogRate * 60,_minLogRate * 60);
-    
-
-    minLogInterval = min(minLogInterval, logLimit);
-    
-    /*Serial.print(logLimit);
-    Serial.print(" ");
-    Serial.print(minLogInterval);
-    Serial.print(" ");
-    Serial.println(logIntervalCounter);*/
-    
-    if((logIntervalCounter > minLogInterval) && (abs(totalWaterOut - totalWaterOutFLSH) > 0.005*2000)){
-      logIntervalCounter = 0;
-      minLogInterval = _minLogRate * 60;
-      Serial.println("LOG LOG");
-
-      totalWaterOutFLSH = totalWaterOut;
-      Serial.print("writing total Out to EEPROM: ");
-      Serial.println(totalWaterOut);
-      EEPROM.write(_totalOutL, ((uint16_t)totalWaterOut >> 0) & 0xFF);
-      EEPROM.write(_totalOutH, ((uint16_t)totalWaterOut >> 8) & 0xFF);
-      EEPROM.commit();
-    }
-    /*static long int lastWrite = 0;
-   // Serial.println("EEPROM LOG:");
-   double totalOutDiff = abs(totalWaterOut - totalWaterOutFLSH);
-   double logInterval = 1 + (1/(abs(flow)+1)) * 20;
-   Serial.println(logInterval);
-   
-   
-    if(( totalOutDiff > (0.05*2000) && lastWrite > (_maxChangeWriteRate * 3000/_mainLoopDelay))){
-      totalWaterOutFLSH = totalWaterOut;
-      Serial.print("writing total Out to EEPROM: ");
-      Serial.println(totalWaterOut);
-      EEPROM.write(_totalOutL, ((uint16_t)totalWaterOut >> 0) & 0xFF);
-      EEPROM.write(_totalOutH, ((uint16_t)totalWaterOut >> 8) & 0xFF);
-      EEPROM.commit();
-    }
-    lastWrite++;
-    Serial.println(lastWrite);*/
-      
-  }
-  void loadEEPROM(){
-    uint16_t totalWaterOut = (EEPROM.read(_totalOutH) << 8) | (EEPROM.read(_totalOutL) & 0xff);
-    this->totalWaterOut = totalWaterOutFLSH = totalWaterOut;
-    Serial.print("totalWater out from EEPROM: ");
-    Serial.println(totalWaterOut);
-  }
-  void lutLevel(double in){
-    /*double pulseLUT[] = {16500, 17500,  18860, 20190, 21760,  23440,}
-    double levelLUT[] = {1020,  1000,     900,   800,   700,    600,}*/
-
-    /// 20000
-    double out = 0;
-    double LUT[] = {
-      16500,1020,
-      17500,1000,
-      18860,900,
-      20190,800,
-      21760,700,
-      23440,600,
-      25500,500,
-      27670,402,
-      30770,300,
-      32200,200,
-      38980,100,
-      44000,0
-    };
-    if(in > LUT[(sizeof(LUT) / sizeof(LUT[0]))-2]){
-      out = LUT[(sizeof(LUT) / sizeof(LUT[0]))-1];
-    }
-    else if(in < LUT[0]){
-      out = LUT[1];
-    }
-    for(int i=0; i< ((sizeof(LUT) / sizeof(LUT[0]))-2); i+=2){
-      if(in > LUT[i] && in <= LUT[i+2]){
-        double percent = ((in - LUT[i])/(LUT[i+2] - LUT[i]));
-
-        out = LUT[i+1] +((LUT[i+3] - LUT[i+1]) * percent);
-        //out = LUT[i+1];
-        break;
-      }
-    }
-    Serial.print("Sensor depth: ");
-    Serial.println(out);
-    }
-  void calcLevel(){
-    #define _dLiterHist 0
-    
-    if(!updateValues){
-      return;
-    }
-    updateValues = false;
-    //Serial.println(freq);
-    /// Linear approximation, works for this tank because of shape, might need LUT for complex cross sections
-    lutLevel(this->freq);
-    tankLiters = constrain(map(this->freq, emptyFreq, fullFreq, emptyLiters, fullLiters),emptyLiters, fullLiters);
-    if(prevFilteredLiters == -1){
-      prevFilteredLiters = tankLiters;
-      
-    }
-    else{
-      prevFilteredLiters = filteredLiters;
-    }
-    filteredLiters = litersKFiltered(tankLiters);
-    percent = ((filteredLiters-emptyLiters) *100)/ (fullLiters-emptyLiters);
-    dLiters = prevFilteredLiters - filteredLiters;
-    if(abs(dLiters) > _dLiterHist){
-      if(dLiters > _dLiterHist){
-        totalWaterOut += dLiters;
-      }
-      this->saveToEEPROM();
-    }  
-    flow = (dLiters)*10*60;
-    flow = flowKFiltered(calcRunningAvrg(flow));//flowKFiltered(flow);
-  }
-  double getRaw(){
-    return freq;
-  }
-  double getLiters(){
-    return filteredLiters;
-  }
-  String getLitersStr(){
-    return String(filteredLiters);
-  }
-  double getPercent(){
-    return percent;
-  }
-  double getFlow(){
-     return flow;
-  }
-  String getInfoStr(){
-    /// TankLevel/ TankLiters/ Flow/ TMUntilEmpty/ SpentWater/ AverageFlow/ DischStarted/ Last fill time/ 
-    return String(this->percent) + "/" + String(this->filteredLiters) + "/" + String(this->flow) + "/" +String(this->ttEdge) + "/" +String(this->totalWaterOut) +"/" + String(this->avrgOutFlow)+ "/" + String(this->dischStartTm)+"/" + String(this->lastFilledTime)+ "/" + String(this->lastFillDuration);  
-  }
-  void setTotalOut(double totalOut){
-    this->totalWaterOut = totalOut;
-    }
-};
-
-LiquidLevel levelSens(2000, 0, 16500, 46000);
+LiquidLevel levelSens(2000, 0, 16500, 46000); /// new instance of liquid level class for capacitive sensor
 
 
-String getCurrentLevel() {
-  /*static int counter = 0;
-  counter++;
-  return String(counter);*/
+/*String getCurrentLevel() {
   return String(rawPulse);
 }
 String getInfo(){
   /// TankLevel/ TankLiters/ Flow/ TMUntilEmpty/ SpentWater/ AverageFlow/ DischStarted/ Last fill time/ 
  // String webDispStr = String(levelSens.getPercent()) + "/" + String( levelSens.getLiters()) + "/20/5/120000/20/1222/55644/2234";
   return levelSens.getInfoStr();
-}
+}*/
 
-void IRAM_ATTR isr() {
-  levelSensPulses++;
+void IRAM_ATTR isr() {        /// interrupt service routine, executerd on every sensor pin falling edge
+  levelSensPulses++;          /// increase pulse count
 }
-void IRAM_ATTR timerISR() {
-  newReading = rawPulse = levelSensPulses;
-  levelSens.setFreq((levelSensPulses*10), 100);
-  //Serial.println(levelSensPulses);
+void IRAM_ATTR timerISR() {   /// timer interrupt routine - executed every 100ms
+  newReading = rawPulse = levelSensPulses;  /// TODO: ? this is probably not needed
+  levelSens.setFreq((levelSensPulses*10), 100); /// pass number of pulses in the last 100ms to function
   levelSensPulses = 0;
 }
-double kFiltered(double dist) {
 
-  const double R = 1000;//10;   /// measurement noise
-  const double H = 1;
-  static double Q = 0.1;   /// initial covariance
-  static double P = 0;    /// init. error covariance
-  static double K = 0;    /// init. Kalman gain
-  static double distBar = -1;     /// est. variable
-
-  const double hist = 5;
-
-  if (distBar == -1) {
-    distBar = dist;
-  }
-  if(abs(distBar - dist) < hist){
-    return distBar;
-  }
-
- /* if (dist < MIN_TANK_HEIGHT || dist > MAX_TANK_HEIGHT) {
-    return distBar;
-  }*/
-
-  K = P * H / (H * H * P + R);
-  distBar = distBar + K * (dist - H * distBar);
-  P = (1 - K * H) * P + Q;
-  return distBar;
-}
 
 void setup(){
-  // Serial port for debugging purposes
-  Serial.begin(115200);
-  EEPROM.begin(EEPROM_SIZE);
-  levelSens.loadEEPROM();
- // levelSens.setTotalOut(2000);
-  //levelSens.saveEEPROM();
+  Serial.begin(115200);           /// start DBG serial
+  EEPROM.begin(EEPROM_SIZE);      /// start EEprom
+  levelSens.loadEEPROM();         /// load max water out, average flow from uController EEPROM
+  pinMode(LED_BLUE, OUTPUT);      /// Set LED pins 
+  pinMode(LED_GREEN, OUTPUT);
+  digitalWrite(LED_BLUE, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
+  
+  Serial.print("Setting AP (Access Point)");
+  
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
 
-  // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1500);
-    Serial.println("Connecting to WiFi..");
-  }
+  Serial.println(".");
 
   // Print ESP32 Local IP Address
   Serial.println(WiFi.localIP());
+  WiFi.softAP(hotspotSSID, hotspotPasswd);    /// Start ESP Wifi hotspot
+  dnsServer.start(53, "*", WiFi.softAPIP());  /// Start DNS server
 
-  server.on("/currentLevel", HTTP_GET, [](AsyncWebServerRequest *request){
+
+  server.on("/currentLevel", HTTP_GET, [](AsyncWebServerRequest *request){    /// If you get html get request for /currentlevel, respond with text: levelSens.getLitersStr().c_str()
     request->send_P(200, "text/html", levelSens.getLitersStr().c_str());
   });
-  server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/html", getInfo().c_str());
+  server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request){            /// /info ==> levelSens.getInfoStr().c_str()
+    request->send_P(200, "text/html", levelSens.getInfoStr().c_str());
   });
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){                /// / ==> String(indexStr).c_str() /// serve the index page stored in index.h
     request->send(200, "text/html", String(indexStr).c_str());
   });
-
-  // Start server
-  server.begin();
-
-  pinMode(13, INPUT_PULLUP);
-  attachInterrupt(13, isr, FALLING);
+  server.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest *request){    /// android connected to hotspot ==> String(indexStr).c_str() /// serve the index page stored in index.h
+    request->send(200, "text/html", String(indexStr).c_str());
+  });
+  server.on("/fwlink", HTTP_GET, [](AsyncWebServerRequest *request){          /// windows connected to hotspot ==> String(indexStr).c_str() /// serve the index page stored in index.h
+    request->send(200, "text/html", String(indexStr).c_str());
+  });
+  server.onNotFound([](AsyncWebServerRequest *request){                       /// request for some other webpage ==> String(indexStr).c_str() /// serve the index page stored in index.h
+    request->send(200, "text/html", String(indexStr).c_str());
+  });
+  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);     ///Redirect every request to captive portal
   
-  timer = timerBegin(0, 80, true);
+
+  server.begin();                                                             /// Start webserver
+
+  pinMode(13, INPUT_PULLUP);                                                  /// Capacitive Sensor pin -> pull up
+  attachInterrupt(13, isr, FALLING);                                          /// Capacitive pin falling edge -> trigger interrupt
+
+  timer = timerBegin(0, 80, true);                                            /// Initialise timer interrupt for every 100ms
   timerAttachInterrupt(timer, &timerISR, true);
   timerAlarmWrite(timer, 100000, true);
   timerAlarmEnable(timer);
+
+/// DISP INIT
+  disp_init();
+  send2Disp(0x0f, 0x00, 0x00);  // Display mode: Test 0x01 : Normal 0x00
+  send2Disp(0x0c, 0x00, 0x00);   // Display : Shutdown 0x00 : On 0x01
+  send2Disp(0x0a, 0x01, 0x01);  // Brightness : 0x0
+  send2Disp(0x09, 0x00, 0x00);  // Decode mode: 0x00 - no decode, 0x01, 0x0F, 0xFF - ascii
+  send2Disp(0x0b, 0x07, 0x07);  // Scan Limit reg
+  send2Disp(0x0c, 0x01, 0x01);   // Display : Shutdown 0x00 : On 0x01
+/// DISP INIT
 
   
 }
  
 void loop(){
   
-  /*Serial.print(calcSigma());
-  Serial.print(",");
-  Serial.print("filtered:");
-  Serial.println(kFiltered(calcSigma()));*/
-  delay(_mainLoopDelay);
-  levelSens.calcLevel();
+  delay(_mainLoopDelay);           /// delay
+  levelSens.update();              /// update display values          
+  if(levelSens.noConErr){          /// if sensor not connected, print error to display, else print sensor readings to display
+     printText();
+  }
+  else{
+     printValues(constrain((levelSens.percent * 10),0,1000), constrain(levelSens.flow, -999, 999), -1,levelSens.getTTedgeInt(), levelSens.flowStatus, "","","");
+  }
+ 
+
+  dnsServer.processNextRequest();   /// process DNS request if new phone is connected
 
   /*Serial.print("raw:");
   Serial.print(levelSens.getRaw());
