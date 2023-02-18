@@ -3,6 +3,7 @@
 #define CAP_SENS_PIN 13             /// Capacitive sensor pin
 #define LED_BLUE 32                 /// blue LED pin
 #define LED_GREEN 33                /// green LED pin
+#define CALIB_SWITCH_PIN 19         /// switch for going into calibration mode
 
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
@@ -78,13 +79,13 @@ void IRAM_ATTR timerISR() {   /// timer interrupt routine - executed every 100ms
   levelSensPulses = 0;
 }
 
-
 void setup(){
   Serial.begin(115200);           /// start DBG serial
   EEPROM.begin(EEPROM_SIZE);      /// start EEprom
   levelSens.loadEEPROM();         /// load max water out, average flow from uController EEPROM
   pinMode(LED_BLUE, OUTPUT);      /// Set LED pins 
   pinMode(LED_GREEN, OUTPUT);
+  pinMode(CALIB_SWITCH_PIN, INPUT_PULLUP);      /// switch pin
   digitalWrite(LED_BLUE, HIGH);
   digitalWrite(LED_GREEN, HIGH);
   
@@ -145,7 +146,6 @@ void setup(){
 
   
 }
- 
 void loop(){
   
   delay(_mainLoopDelay);           /// delay
@@ -156,7 +156,15 @@ void loop(){
   else{
      printValues(constrain((levelSens.percent * 10),0,1000), constrain(levelSens.flow, -999, 999), -1,levelSens.getTTedgeInt(), levelSens.flowStatus, "","","");
   }
- 
+
+  for(int i=0; i < 100; i++){
+    if(!digitalRead(CALIB_SWITCH_PIN)){
+      break;
+    }
+    delayMicroseconds(1000);
+    digitalWrite(LED_GREEN, HIGH);
+    levelSens.calibrate();
+  }
 
   dnsServer.processNextRequest();   /// process DNS request if new phone is connected
 
