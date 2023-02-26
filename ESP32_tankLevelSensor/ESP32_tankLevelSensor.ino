@@ -90,8 +90,6 @@ void setup(){
   digitalWrite(LED_BLUE, HIGH);
   digitalWrite(LED_GREEN, HIGH);
 
-  displays.init();
-  
   Serial.print("Setting AP (Access Point)");
   
   IPAddress IP = WiFi.softAPIP();
@@ -138,13 +136,13 @@ void setup(){
   timerAlarmEnable(timer);
 
 /// DISP INIT
-  disp_init();
-  send2Disp(0x0f, 0x00, 0x00);  // Display mode: Test 0x01 : Normal 0x00
-  send2Disp(0x0c, 0x00, 0x00);   // Display : Shutdown 0x00 : On 0x01
-  send2Disp(0x0a, 0x01, 0x01);  // Brightness : 0x0
-  send2Disp(0x09, 0x00, 0x00);  // Decode mode: 0x00 - no decode, 0x01, 0x0F, 0xFF - ascii
-  send2Disp(0x0b, 0x07, 0x07);  // Scan Limit reg
-  send2Disp(0x0c, 0x01, 0x01);   // Display : Shutdown 0x00 : On 0x01
+  displays.init();
+  displays.send2Disp(0x0f, 0x00, 0x00);  // Display mode: Test 0x01 : Normal 0x00
+  displays.send2Disp(0x0c, 0x00, 0x00);   // Display : Shutdown 0x00 : On 0x01
+  displays.send2Disp(0x0a, 0x01, 0x01);  // Brightness : 0x0
+  displays.send2Disp(0x09, 0x00, 0x00);  // Decode mode: 0x00 - no decode, 0x01, 0x0F, 0xFF - ascii
+  displays.send2Disp(0x0b, 0x07, 0x07);  // Scan Limit reg
+  displays.send2Disp(0x0c, 0x01, 0x01);   // Display : Shutdown 0x00 : On 0x01
 /// DISP INIT
 
   
@@ -152,13 +150,16 @@ void setup(){
 void loop(){
   
   delay(_mainLoopDelay);           /// delay
-  displays.printStr("FREQ                ");
-  /*levelSens.update();              /// update display values          
-  if(levelSens.noConErr){          /// if sensor not connected, print error to display, else print sensor readings to display
-     printText();
+  
+  levelSens.update();              /// update display values          
+  if((int)levelSens.avgFreq == 0){          /// if sensor not connected, print error to display, else print sensor readings to display
+     displays.printStr("ERR     NO CON  ");
+  }
+  else if((int)levelSens.avgFreq >= 150000){
+     displays.printStr("SENS    FAULT   ");
   }
   else{
-     printValues(constrain((levelSens.percent * 10),0,1000), constrain(levelSens.flow, -999, 999), -1,levelSens.getTTedgeInt(), levelSens.flowStatus, "","","");
+    displays.printMenu(0,(levelSens.percent*10),levelSens.flow,levelSens.getTTedgeInt(),-1, levelSens.avgFreq,1132);
   }
 
   for(int i=0; i < 100; i++){

@@ -297,72 +297,72 @@ const double mms2correctedmmsLUT[] = {
   900 , 1000
 };
 
-double getLUTmms(double in, const byte LUTtoUse, bool verboseFlag = true) {
+double getLUTmms(double in, const bool correction, bool verboseFlag = true) {
+  double out = -999;
 
   if ( in < 1) {      /// if sensor reads 0Hz, probe is not connected or faulty, return error
     return -999;      /// return negative num. to signal no con error - TODO: handle this in liquidLevel.h
   }
 
-  switch (LUTtoUse) {
-    case 0:
-      {
-        int lutLen = sizeof(freq2mmsLUT) / sizeof(freq2mmsLUT[0]);
+  int lutLen = sizeof(freq2mmsLUT) / sizeof(freq2mmsLUT[0]);
 
-        if (in >= freq2mmsLUT[(lutLen - 2)]) { /// check if LUT contains in
-          return freq2mmsLUT[(lutLen - 1)];
-        }
-        if (in < freq2mmsLUT[0]) {
-          return freq2mmsLUT[1];
-        }
-
-        for (int i = 0; i < lutLen - 2; i += 2) {                               /// Loop over LUT, get two points next to each other
-          if (in > freq2mmsLUT[i] && i <= freq2mmsLUT[ i + 2 ]) {               /// if measured value is between the two points
-            ///double percent = (in - freq2mmsLUT[i]) / (req2mmsLUT[i+2] - req2mmsLUT[i]);
-            ///return freq2mmsLUT[ i+1 ] + ((freq2mmsLUT[ i+3 ] - freq2mmsLUT[ i+1 ]) * percent);
-            double out = (freq2mmsLUT[ i + 1 ] + ((freq2mmsLUT[ i + 3 ] - freq2mmsLUT[ i + 1 ]) * ((in - freq2mmsLUT[i]) / (freq2mmsLUT[i + 2] - freq2mmsLUT[i])))); /// use linear approximation between points to get output
-            if (verboseFlag) {
-              Serial.println("Freq -> mm's");
-              Serial.print("Freq:\t\t");
-              Serial.print(in);
-              Serial.print(" LUT Out:\t\t");
-              Serial.println(out);
-            }
-            return out;
-          }
-        }
+  if (in >= freq2mmsLUT[(lutLen - 2)]) { /// check if LUT contains in
+    out = freq2mmsLUT[(lutLen - 1)];
+  } else if (in < freq2mmsLUT[0]) {
+    out = freq2mmsLUT[1];
+  } else {
+    for (int i = 0; i < lutLen - 2; i += 2) {                               /// Loop over LUT, get two points next to each other
+      if (in > freq2mmsLUT[i] && in <= freq2mmsLUT[ i + 2 ]) {               /// if measured value is between the two points
+        double percent = (in - freq2mmsLUT[i]) / (freq2mmsLUT[i + 2] - freq2mmsLUT[i]);
+        out = freq2mmsLUT[ i + 1 ] + ((freq2mmsLUT[ i + 3 ] - freq2mmsLUT[ i + 1 ]) * percent);
         break;
       }
-    case 1:
-      Serial.println("mm's -> corrected mm's");
-
-      int lutLen = sizeof(freq2mmsLUT) / sizeof(freq2mmsLUT[0]);
-      double out = 0;
-      
-        if (in >= freq2mmsLUT[(lutLen - 2)]) { /// check if LUT contains in
-          in = freq2mmsLUT[(lutLen - 1)];
-        }else if (in < freq2mmsLUT[0]) {
-          in = freq2mmsLUT[1];
-        } else{
-          for (int i = 0; i < lutLen - 2; i += 2) {                               /// Loop over LUT, get two points next to each other
-          if (in > freq2mmsLUT[i] && i <= freq2mmsLUT[ i + 2 ]) {               /// if measured value is between the two points
-            ///double percent = (in - freq2mmsLUT[i]) / (req2mmsLUT[i+2] - req2mmsLUT[i]);
-            ///return freq2mmsLUT[ i+1 ] + ((freq2mmsLUT[ i+3 ] - freq2mmsLUT[ i+1 ]) * percent);
-            if (verboseFlag){
-              Serial.println("Freq -> mm's");
-              Serial.print("Freq:\t\t");
-              Serial.print(in);
-            }
-            in = (freq2mmsLUT[ i + 1 ] + ((freq2mmsLUT[ i + 3 ] - freq2mmsLUT[ i + 1 ]) * ((in - freq2mmsLUT[i]) / (freq2mmsLUT[i + 2] - freq2mmsLUT[i])))); /// use linear approximation between points to get output
-            if (verboseFlag) {
-              Serial.print(" LUT Out:\t\t");
-              Serial.println(in);
-            }
-            break;
-          }
-        }
-        }
-
-        
-      break;
+    }
   }
+
+  if (!correction) {
+    if (verboseFlag) {
+      Serial.println("Freq -> mm's");
+      Serial.print("Freq:\t\t");
+      Serial.print(in);
+      Serial.print(" LUT Out:\t\t");
+      Serial.println(out);
+    }
+
+    return out;
+  }
+
+  if (verboseFlag) {
+      Serial.println("Freq -> mm's");
+      Serial.print("Freq:\t\t");
+      Serial.print(in);
+      Serial.print(" LUT Out:\t\t");
+      Serial.println(out);
+  }
+  in=out;
+  lutLen = sizeof(mms2correctedmmsLUT) / sizeof(mms2correctedmmsLUT[0]);
+
+  if (in >= mms2correctedmmsLUT[(lutLen - 2)]) { /// check if LUT contains in
+    out = mms2correctedmmsLUT[(lutLen - 1)];
+  } else if (in < mms2correctedmmsLUT[0]) {
+    out = mms2correctedmmsLUT[1];
+  } else {
+    for (int i = 0; i < lutLen - 2; i += 2) {                               /// Loop over LUT, get two points next to each other
+      if (in > mms2correctedmmsLUT[i] && in <= mms2correctedmmsLUT[ i + 2 ]) {               /// if measured value is between the two points
+        double percent = (in - mms2correctedmmsLUT[i]) / (mms2correctedmmsLUT[i + 2] - mms2correctedmmsLUT[i]);
+        out = mms2correctedmmsLUT[ i + 1 ] + ((mms2correctedmmsLUT[ i + 3 ] - mms2correctedmmsLUT[ i + 1 ]) * percent);
+        break;
+      }
+    }
+  }
+
+  if (verboseFlag) {
+      Serial.println("mm's -> corrected");
+      Serial.print("mm:\t\t");
+      Serial.print(in);
+      Serial.print(" LUT Out:\t\t");
+      Serial.println(out);
+  }
+
+  return out;
 }

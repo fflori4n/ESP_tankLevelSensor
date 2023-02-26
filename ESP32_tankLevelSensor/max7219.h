@@ -2,279 +2,78 @@
 #define MAX7219_CS 14
 #define MAX7219_DIN 27
 
-
-/**
-   @brief initialise display pins
-
-*/
-void disp_init() {
-  digitalWrite(MAX7219_CS, HIGH);
-  pinMode(MAX7219_DIN, OUTPUT);
-  pinMode(MAX7219_CS, OUTPUT);
-  pinMode(MAX7219_CLK, OUTPUT);
-}
-/**
-   @brief clear display buffers and shift out blank display characters
-
-*/
-void blankDispMem() {
-#define dispLen 8
-  for (byte i = 1; i < dispLen + 1; i++) {
-    digitalWrite(MAX7219_CS, LOW);                            /// Chip select pulled low signals start of communication, display is waiting for 2 bytes of data
-    shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, i);          /// i is index of character in display module
-    shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, 0b00000000); /// 0b00000000 is one byte character code of 7segment character, 0 - led off, 1 - led on
-    shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, i);          /// repeat once more, because we use two display modules, first one takes 2Bytes and forwards the rest to the second
-    shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, 0b00000000);
-    digitalWrite(MAX7219_CS, HIGH);                           /// end of messege
-  }
-}
-/**
-   @brief Shifts out 'data' for first disp. module and 'data1' for second, the two characters will be placed at diplay index 'address'
-
-   @param address
-   @param data
-   @param data1
-*/
-void send2Disp(byte address, byte data, byte data1) {
-  digitalWrite(MAX7219_CS, LOW);                          /// start transmission
-  shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, address);  /// Byte 0 - index to change - display 0
-  shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, data);     /// Byte 1 - new character - display 0
-  shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, address);  /// Byte 2 - index to change - display 1
-  shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, data1);    /// Byte 3 - new character - display 1
-  digitalWrite(MAX7219_CS, HIGH);                         /// end transmission
-}
-/*void printByte(byte address, byte code){
-  digitalWrite(MAX7219_CS, LOW);
-  shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, address);
-  shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, code);
-  digitalWrite(MAX7219_CS, HIGH);
-  }*/
-/**
-   @brief Translate 'simbol' and 'simbol1'(the two characters to be written to the display) to their 7segment representation, and write to display
-
-   @param address index of character
-   @param simbol to be written to display 0
-   @param simbol1 to be writtern to dispay1
-   @param point does the first display character need decimal point
-   @param point1 does the second display character need decimal point
-*/
-void printChar(byte address, char simbol, char simbol1, boolean point, boolean point1) {
-#define dispLen 8
-
-  /// Plausible input characters, and their seven segment code
-  const byte simbCodes[][2] =
-  {
-    {'_', 0b00001000},
-    {'0', 0b01111110},
-    {'1', 0b00110000},
-    {'2', 0b01101101},
-    {'3', 0b01111001},
-    {'4', 0b00110011},
-    {'5', 0b01011011},
-    {'6', 0b01011111},
-    {'7', 0b01110000},
-    {'8', 0b01111111},
-    {'9', 0b01111011},
-    {'.', 0b10000000},
-    {' ', 0b00000000},
-    {'A', 0b01110111},
-    {'B', 0b00011111},
-    {'C', 0b01001110},
-    {'D', 0b00111101},
-    {'E', 0b01001111},
-    {'F', 0b01000111},
-    {'L', 0b00001110},
-    {'P', 0b01100111},
-    {'R', 0b11100111},
-    {'S', 0b01011011},
-    {'T', 0b01110000},
-    {'O', 0b01111110},
-    {'U', 0b00111110},
-    {'N', 0b01110110},
-    {'-', 0b00000001},
-    {'Y', 0b01000000}
-  };
-  address = (dispLen + 1) - address; /// set index to start from 0, like so: 76543210
-  digitalWrite(MAX7219_CS, LOW);
-
-  bool charFound = false;
-  for (int i = 0; i < (sizeof (simbCodes) / sizeof (simbCodes[0])); i++) {  /// loop over 'simbCodes' array, and find seven segment code for character
-    if (simbol == simbCodes[i][0]) {
-      //digitalWrite(MAX7219_CS, LOW);
-      charFound = true;
-      shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, address);
-      if (point) {
-        shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, (simbCodes[i][1] | 0b10000000));
-      }
-      else {
-        shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, simbCodes[i][1]);
-      }
-    }
-  }
-  /// CHAR NOT FOUND, SHIFT OUT _
-  if (!charFound) {
-    shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, address);
-    shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, simbCodes[0][1]);
-  }
-
-  charFound = false;
-  for (int i = 0; i < (sizeof (simbCodes) / sizeof (simbCodes[0])); i++) {
-    if (simbol1 == simbCodes[i][0]) {
-      charFound = true;
-      shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, address);
-      if (point1) {
-        shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, (simbCodes[i][1] | 0b10000000));
-      }
-      else {
-        shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, simbCodes[i][1]);
-      }
-    }
-  }
-  /// CHAR NOT FOUND, SHIFT OUT _
-  if (!charFound) {
-    shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, address);
-    shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, simbCodes[0][1]);
-  }
-  digitalWrite(MAX7219_CS, HIGH);
-}
-void printText() {
-  char topText[] = "ER  SENS";
-  char bottomText[] = "FAULT   ";
-
-  /*for(byte i=0; i< 9; i++){
-    topText[i] = msg[i];
-    bottomText[i] = msg[i];
-    }*/
-
-  blankDispMem();
-  for (byte i = 1; i < 9; i++) {
-    printChar(i, bottomText[i - 1], topText[i - 1], false, false);
-  }
-
-}
-void printValues(int level, int flow, int avgSgn, int ttEdge, unsigned int flowStatus, char msgA[] = "", char msgB[] = "", char msgC[] = "") {
-
-  char dispStr[9];
-  char dispStr1[9] = "--------";
-  char aStr[] = "    ";
-  char bStr[] = "    ";
-  char statusDig = '-';
-  uint8_t A0dig, A1dig, A2dig;
-  uint8_t B0dig, B1dig, B2dig, B3dig;
-  uint8_t C0dig, C1dig, C2dig, C3dig;
-  static uint8_t blinker = 0;
-
-  if (flowStatus == 0) {
-    statusDig = '-';
-  } else if (flowStatus == 1) {
-    statusDig = '_';
-  } else {
-    statusDig = 'Y';
-  }
-
-  /// TOP DISPLAY
-  char minusStr = ' ';
-  if (flow < 0) {
-    minusStr = '-';
-  }
-
-  flow = abs(flow);
-  A0dig = flow / 100;
-  A1dig = (flow % 100) / 10;
-  A2dig = flow % 10;
-
-  if (strcmp(msgA, "") == 0) {
-    sprintf(aStr, "%c%d%d%d", minusStr, A0dig, A1dig, A2dig);
-  }
-  else {
-    sprintf(aStr, msgA);
-  }
-
-  B0dig = level / 1000;
-  B1dig = (level % 1000) / 100;
-  B2dig = (level % 100) / 10;
-  B3dig = (level % 10);
-
-  if (strcmp(msgB, "") == 0) {
-    if (B0dig == 0 && B1dig == 0) {
-      sprintf(bStr, "  %d%d", B2dig, B3dig);
-    }
-    else if (B0dig == 0) {
-      sprintf(bStr, " %d%d%d", B1dig, B2dig, B3dig);
-    }
-    else {
-      sprintf(bStr, "%d%d%d%d", B0dig, B1dig, B2dig, B3dig);
-    }
-  }
-  else {
-    sprintf(aStr, msgA);
-  }
-
-  /// BOTTOM DISPLAY
-  if (strcmp(msgC, "") == 0) {
-    char avgOrCurrent = ' ';  /// current
-    C0dig = ((ttEdge % 10000) / 1000);
-    C1dig = (ttEdge % 1000) / 100;
-    C2dig = (ttEdge % 100) / 10;
-    C3dig = (ttEdge % 10);
-
-    if (ttEdge / 10000 == 0) {
-      avgOrCurrent = 'A';
-    }
-    else {
-      avgOrCurrent = ' ';
-    }
-    sprintf(dispStr, "%c%c %d%d %d%d", statusDig, avgOrCurrent, C0dig, C1dig, C2dig, C3dig);
-  }
-  else {
-    sprintf(dispStr, msgC);
-  }
-
-  sprintf(dispStr1, "%s%s", aStr, bStr);
-
-  /// PRINT STRINGS TO DISPLAYS
-  blankDispMem();
-  for (byte i = 1; i < 9; i++) {
-    if (i == 7 && dispStr[i - 1] != '-' && dispStr[i - 1] != ' ') {
-      printChar(i, dispStr[i - 1], dispStr1[i - 1], false, true);
-    }
-    else {
-      printChar(i, dispStr[i - 1], dispStr1[i - 1], false, false);
-    }
-
-  }
-}
-
 char simb7Seg[] = {
-'_', 0b00001000,
-'0', 0b01111110,
-'1', 0b00110000,
-'2', 0b01101101,
-'3', 0b01111001,
-'4', 0b00110011,
-'5', 0b01011011,
-'6', 0b01011111,
-'7', 0b01110000,
-'8', 0b01111111,
-'9', 0b01111011,
-'.', 0b10000000,
-' ', 0b00000000,
-'A', 0b01110111,
-'B', 0b00011111,
-'C', 0b01001110,
-'D', 0b00111101,
-'E', 0b01001111,
-'F', 0b01000111,
-'L', 0b00001110,
-'P', 0b01100111,
-'R', 0b11100111,
-'S', 0b01011011,
-'T', 0b01110000,
-'O', 0b01111110,
-'U', 0b00111110,
-'N', 0b01110110,
-'-', 0b00000001,
-'Y', 0b01000000
+  '\0', 0b00000000,
+  ' ', 0b00000000,
+  '.', 0b10000000,
+  '_', 0b00001000,
+  '-', 0b00000001,
+  '<', 0b00001000,
+  '>', 0b01000000,
+  '~', 0b00000001,
+  '?', 0b11100001,
+  '0', 0b01111110,
+  '1', 0b00110000,
+  '2', 0b01101101,
+  '3', 0b01111001,
+  '4', 0b00110011,
+  '5', 0b01011011,
+  '6', 0b01011111,
+  '7', 0b01110000,
+  '8', 0b01111111,
+  '9', 0b01111011,
+  'A', 0b01110111,
+  'a', 0b01111101,
+  'B', 0b00011111,
+  'b', 0b00011111,
+  'C', 0b01001110,
+  'c', 0b00001101,
+  'D', 0b00111101,
+  'd', 0b00111101,
+  'E', 0b01001111,
+  'e', 0b01001111,
+  'F', 0b01000111,
+  'f', 0b01000111,
+  'G', 0b01011110,
+  'g', 0b01011110,
+  'H', 0b00010111,
+  'h', 0b00010111,
+  'I', 0b00000011,
+  'i', 0b00110000,
+  'j', 0b01011000,
+  'J', 0b01011000,
+  'K', 0b01010111,
+  'k', 0b01010111,
+  'L', 0b00001110,
+  'l', 0b00001100,
+  'M', 0b01010101,
+  'm', 0b01010101,
+  'N', 0b00010101,
+  'n', 0b00010101,
+  'o', 0b00011101,
+  'O', 0b01111110,
+  'p', 0b01100111,
+  'P', 0b01100111,
+  'Q', 0b01110011,
+  'q', 0b01110011,
+  'R', 0b11100111,
+  'r', 0b00000101,
+  'S', 0b01011010,
+  's', 0b01011010,
+  'T', 0b01110000,
+  't', 0b01000110,
+  'u', 0b00011100,
+  'U', 0b00011100,
+  'V', 0b00101010,
+  'v', 0b00101010,
+  'W', 0b00111110,
+  'w', 0b00111110,
+  'X', 0b10100100,
+  'x', 0b10100100,
+  'Y', 0b00111011,
+  'y', 0b00111011,
+  'Z', 0b01101100,
+  'z', 0b01101100
 };
 class Display8x8 {
 
@@ -300,18 +99,24 @@ class Display8x8 {
           return simb7Seg[i + 1];
         }
       }
-      return 0b11111111;
+      return charIn;
     }
 
-    void writeChar(byte address, char char1, char char2) {
+    void writeChar(byte address, char char1, char char2, int disp1, int disp2) {
 
       digitalWrite(MAX7219_CS, LOW);                          /// start transmission
 
       char out = this->to7SegmentChar(char2);
+      if(disp2 == 1){
+        out |= 0b10000000;
+      }
       shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, (9 - address));  /// Byte 0 - index to change - display 0
       shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, out);     /// Byte 1 - new character - display 0
-      
+
       out = this->to7SegmentChar(char1);
+      if(disp1 == 1){
+        out |= 0b10000000;
+      }
       shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, (9 - address));  /// Byte 0 - index to change - display 0
       shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, out);     /// Byte 1 - new character - display 0
 
@@ -320,8 +125,8 @@ class Display8x8 {
 
   public:
 
-    Display8x8(){};
-    void init(){
+    Display8x8() {};
+    void init() {
       digitalWrite(MAX7219_CS, HIGH);
       pinMode(MAX7219_DIN, OUTPUT);
       pinMode(MAX7219_CS, OUTPUT);
@@ -330,20 +135,117 @@ class Display8x8 {
       this->blankDispMem(2);
     }
 
+    void send2Disp(byte address, byte data, byte data1) {
+      digitalWrite(MAX7219_CS, LOW);                          /// start transmission
+      shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, address);  /// Byte 0 - index to change - display 0
+      shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, data);     /// Byte 1 - new character - display 0
+      shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, address);  /// Byte 2 - index to change - display 1
+      shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, data1);    /// Byte 3 - new character - display 1
+      digitalWrite(MAX7219_CS, HIGH);                         /// end transmission
+    }
+
     void printStr(char* strToPrint) {
       char char1, char2;
       char printBuff[] = "1234123456785678";
-      snprintf(printBuff, 17, "%s",strToPrint);
+      snprintf(printBuff, 17, "%s", strToPrint);
       //snprintf(printBuff, 17, "%s",   "BAT     FAULT   ");
       //snprintf(printBuff, 17, "%s", "SENS    FAULT   ");
       //snprintf(printBuff, 17, "%s", "CALIB           ");
       //snprintf(printBuff, 17, "%s", "ERR     NO CON  ");
       digitalWrite(MAX7219_CS, HIGH);
-      for(int j=0; j < 8; j++){
-        
+      for (int j = 0; j < 8; j++) {
+
         char1 = printBuff[j];
         char2 = printBuff[j + 8];
-        writeChar((j+1), char1, char2);
+        writeChar((j + 1), char1, char2,0,0);
+      }
+    }
+    void setDecPoint(char* str, byte index) {
+      str[index] = 1;
+    }
+    void printMenu(byte page, unsigned int percent, int flow, int secsTTedge, int lvlStatus, int freq, int batv) {
+      char char1, char2;
+      char printBuff[] = "                ";
+      char decBuff[] = "                ";
+
+      switch (page) {
+        case 0: /// print status
+          {
+            char lvl3 = ' ', lvl2 = ' ', lvl1 = ' ', lvl0 = ' ';
+            char flow2 = ' ', flow1 = ' ', flow0 = ' ', flowSgn = ' ';
+            char levelStatusChar = ' ';
+            char ttmin1 = ' ', ttmin0 = ' ', ttsec1 = ' ', ttsec0 = ' ';
+            char ttAverageSgn = 'A';
+
+            percent = constrain((percent), 0, 1000);
+            lvl0 = '0' + (percent % 10);
+            lvl1 = '0' + (percent % 100) / 10;
+            if (percent > 99) {
+              lvl2 = '0' + (percent % 1000) / 100;
+            }
+            if (percent > 999) {
+              lvl3 = '0' + (percent % 10000) / 1000;
+            }
+
+            levelStatusChar = '~';
+            if (abs(flow) >= 50) {
+              if (flow > 0) {
+                levelStatusChar = '<';
+              }
+              else {
+                levelStatusChar = '>';
+              }
+            }
+            if (secsTTedge / 10000 == 1) {
+              ttAverageSgn = 'C';
+              if (flow < 0) {
+                ttAverageSgn = 'F';
+              }
+            }
+
+
+            flow = constrain(flow, -999, 999);
+            if (flow < 0) {
+              flowSgn = '-';
+            }
+            flow = abs(flow);
+            flow0 = '0' + (flow % 10);
+            if (flow > 10) {
+              flow1 = '0' + ((flow % 100) / 10);
+            }
+            if (flow > 100) {
+              flow2 = '0' + ((flow % 1000) / 100);
+            }
+
+            ttsec0 = '0' + (secsTTedge % 10); //((secsTTedge % 60) % 10);
+            ttsec1 = '0' + (secsTTedge % 100) / 10; //((secsTTedge % 60) / 10);
+            ttmin0 = '0' + (secsTTedge % 1000) / 100; //((secsTTedge / 60) % 10);
+            ttmin1 = '0' + (secsTTedge % 10000) / 1000; //constrain(((secsTTedge / 60) / 10), 0, 9);
+
+
+            snprintf(printBuff, 17, "%c%c%c%c%c%c%c%c%c%c %c%c %c%c", flowSgn, flow2, flow1, flow0, lvl3, lvl2, lvl1, lvl0, levelStatusChar, ttAverageSgn, ttmin1, ttmin0, ttsec1, ttsec0);
+            setDecPoint(decBuff, 6);
+          }
+          break;
+        case 1:
+          snprintf(printBuff, 17, "FREQ    %d%d%d%d%d%d%d%d", (freq % 100000000) / 10000000, (freq % 10000000) / 1000000, (freq % 1000000) / 100000, (freq % 100000) / 10000, (freq % 10000) / 1000, (freq % 1000) / 100, (freq % 100) / 10, (freq % 10));
+          break;
+        case 2:
+          snprintf(printBuff, 17, "BAt     %d%d%d%d  ", ((batv % 10000) / 1000), ((batv % 1000) / 100), ((batv % 100) / 10), (batv % 10));
+          setDecPoint(decBuff, 9);
+          break;
+          /*case 3:
+            snprintf(printBuff, 17, "FiLL SEC 1 45", 1,2,3,7);
+            //setDecPoint(printBuff, 9);
+            break;*/
+      }
+
+      digitalWrite(MAX7219_CS, HIGH);
+      for (int j = 0; j < 8; j++) {
+
+        char1 = printBuff[j];
+        char2 = printBuff[j + 8];
+        writeChar((j + 1), char1, char2, decBuff[j], decBuff[j+8]);
       }
     }
 
