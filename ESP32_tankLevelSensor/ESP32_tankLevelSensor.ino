@@ -14,9 +14,8 @@
 #include <AsyncTCP.h>
 
 
-//#include <Wire.h>
-//#include <Adafruit_Sensor.h>
 #include "index.h"              /// file containing html for web interface
+#include "lutFreqTransform.h"
 #include "max7219.h"            /// containing methods for displaying stuff on 8x 7seg display
 #include "liquidLevel.h"        /// containing liquid level class for processing cap. sensor data
 
@@ -29,6 +28,8 @@ const char* hotspotPasswd= "123456789";           /// ESP hotspot passwd
 
 DNSServer dnsServer;                              /// create DNS server
 AsyncWebServer server(80);                        /// create webserver on port 80 - AsyncWebServer
+
+Display8x8 displays;
 
 class CaptiveRequestHandler : public AsyncWebHandler {  /// Captive access point class
 public:
@@ -88,6 +89,8 @@ void setup(){
   pinMode(CALIB_SWITCH_PIN, INPUT_PULLUP);      /// switch pin
   digitalWrite(LED_BLUE, HIGH);
   digitalWrite(LED_GREEN, HIGH);
+
+  displays.init();
   
   Serial.print("Setting AP (Access Point)");
   
@@ -149,7 +152,8 @@ void setup(){
 void loop(){
   
   delay(_mainLoopDelay);           /// delay
-  levelSens.update();              /// update display values          
+  displays.printStr("FREQ                ");
+  /*levelSens.update();              /// update display values          
   if(levelSens.noConErr){          /// if sensor not connected, print error to display, else print sensor readings to display
      printText();
   }
@@ -166,7 +170,7 @@ void loop(){
     levelSens.calibrate();
   }
 
-  dnsServer.processNextRequest();   /// process DNS request if new phone is connected
+  dnsServer.processNextRequest();   /// process DNS request if new phone is connected*/
 
   /*Serial.print("raw:");
   Serial.print(levelSens.getRaw());

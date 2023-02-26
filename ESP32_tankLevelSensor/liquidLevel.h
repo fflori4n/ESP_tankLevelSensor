@@ -210,54 +210,7 @@ class LiquidLevel{
         }
       }
     }
-    /*void calibrate(){
-      
-      
-      
-      while(true){
-       // Serial.println("calib mode");
-        digitalWrite(LED_GREEN, HIGH);
-        delay(10);
-        this-> update(false);
-
-        switch(calibrationStep){
-          case 0:
-            msToStart-= 10;
-            if(msToStart%100 == 0){
-              Serial.println(msToStart/100);
-            }
-            if(msToStart<= 0){
-              calibrationStep++;
-              tValveOpened = esp_timer_get_time();
-            }
-            break;
-          case 1:
-            int64_t now = esp_timer_get_time();
-            if((now - prevEspTime) >= (1000 * _SAMPLE_MS)){  /// every 100 ms
-              //Serial.print("t+,fq: ");
-              prevEspTime = now;
-              Serial.print((now - tValveOpened)/1000);
-              Serial.print(",");
-              Serial.println((int)currentFreq);
-
-            for(int i=0; i < 100; i++){
-              if(digitalRead(CALIB_SWITCH_PIN)){
-                break;
-              }
-              delayMicroseconds(1000);
-            }
-            if(digitalRead(CALIB_SWITCH_PIN)){
-              digitalWrite(LED_GREEN, LOW);
-              Serial.println("calibration mode exit.");
-            }
-            
-            break;
-          case 2:
-            break;
-          default:
-            break;
-        }
-    }*/
+   
   
     /**
     * @brief Write 'total water out' and 'average flow' to non volatile EEPROM, these values remain even after microcontroller power off
@@ -342,7 +295,7 @@ class LiquidLevel{
      * @param in frequency measured on capacitive sensor pin
      * @return double water level in mm-s
      */
-    double lutLevel(double in, bool verboseMode = true){
+  /*  double lutLevel(double in, bool verboseMode = true){
       if( in < 1){                /// if sensor reads 0Hz, probe is not connected or faulty, return error
         this->noConErr = true;
         return 0;
@@ -698,9 +651,6 @@ class LiquidLevel{
       #endif
       
       return constrain(mapf(out, 0, 1000, emptyLiters, fullLiters),emptyLiters, fullLiters);  /// convert mm-s of liquid into liters using map
-    }
-    /*double freqToLitersLinear(double freq){
-      return constrain(map(freq, emptyFreq, fullFreq, emptyLiters, fullLiters),emptyLiters, fullLiters);
     }*/
 
   /**
@@ -722,7 +672,7 @@ class LiquidLevel{
     if(levelCalcRDY){                   /// There is a new reading from sensor for level - calculate water level
       levelCalcRDY = false;
 
-      double tankLiters = lutLevel(this->avgFreq, false);                              /// get measured liters
+      double tankLiters = getLUTmms(this->avgFreq, 1, false);//lutLevel(this->avgFreq, false);                              /// get measured liters
       filteredLiters = levelLitersFilter.getFilt(tankLiters);                   /// kalman filter the liters
       percent = ((tankLiters - emptyLiters) *100) / (fullLiters - emptyLiters); /// calculate % of 'fullness'
     }
@@ -731,7 +681,7 @@ class LiquidLevel{
 
 
       //flowNowLiters = freqToLitersLinear(flowNowFreq);  ///// TODO: LUT ***************************************************
-      flowNowLiters = (lutLevel(flowNowFreq, verboseMode) * (fullLiters/100)); /// get measured liters
+      flowNowLiters = getLUTmms(flowNowFreq, 1, verboseMode) * (fullLiters/100);//(lutLevel(flowNowFreq, verboseMode) * (fullLiters/100)); /// get measured liters
 
       if(this->flowPrevLiters == 99999999 && flowNowLiters != 99999999){    /// if this is the first measurement, use this value as previous value
         this->flowPrevLiters = flowNowLiters;
