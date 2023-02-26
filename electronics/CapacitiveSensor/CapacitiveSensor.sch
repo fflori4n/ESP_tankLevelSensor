@@ -1,0 +1,281 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L Timer:NE555 U1
+U 1 1 62D5C296
+P 4425 3175
+F 0 "U1" H 4725 3600 50  0000 C CNN
+F 1 "NE555" H 4650 3525 50  0000 C CNN
+F 2 "myComponents:DIP-8_W7.62mm_Large" H 4425 3175 50  0001 C CNN
+F 3 "http://www.ti.com/lit/ds/symlink/ne555.pdf" H 4425 3175 50  0001 C CNN
+	1    4425 3175
+	-1   0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0101
+U 1 1 62D613C6
+P 4425 4075
+F 0 "#PWR0101" H 4425 3825 50  0001 C CNN
+F 1 "GND" H 4430 3902 50  0000 C CNN
+F 2 "" H 4425 4075 50  0001 C CNN
+F 3 "" H 4425 4075 50  0001 C CNN
+	1    4425 4075
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R1
+U 1 1 62D65899
+P 3175 2950
+F 0 "R1" H 3245 2996 50  0000 L CNN
+F 1 "R" H 3245 2905 50  0000 L CNN
+F 2 "myComponents:resistor0.25,9mm" V 3105 2950 50  0001 C CNN
+F 3 "~" H 3175 2950 50  0001 C CNN
+	1    3175 2950
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R2
+U 1 1 62D661AF
+P 3175 3400
+F 0 "R2" H 3245 3446 50  0000 L CNN
+F 1 "R" H 3245 3355 50  0000 L CNN
+F 2 "myComponents:resistor0.25,9mm" V 3105 3400 50  0001 C CNN
+F 3 "~" H 3175 3400 50  0001 C CNN
+	1    3175 3400
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3800 3625 3800 3375
+Wire Wire Line
+	3800 3375 3925 3375
+$Comp
+L power:VCC #PWR0102
+U 1 1 62D72352
+P 4425 2500
+F 0 "#PWR0102" H 4425 2350 50  0001 C CNN
+F 1 "VCC" H 4442 2673 50  0000 C CNN
+F 2 "" H 4425 2500 50  0001 C CNN
+F 3 "" H 4425 2500 50  0001 C CNN
+	1    4425 2500
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0103
+U 1 1 62D783E3
+P 3175 4075
+F 0 "#PWR0103" H 3175 3825 50  0001 C CNN
+F 1 "GND" H 3180 3902 50  0000 C CNN
+F 2 "" H 3175 4075 50  0001 C CNN
+F 3 "" H 3175 4075 50  0001 C CNN
+	1    3175 4075
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4425 2775 4425 2575
+$Comp
+L Device:C C2
+U 1 1 62D85B6B
+P 5100 3900
+F 0 "C2" H 5215 3946 50  0000 L CNN
+F 1 "10n" H 5215 3855 50  0000 L CNN
+F 2 "myComponents:Capker_L4.6mm_W2.0mm_P2.50mm" H 5138 3750 50  0001 C CNN
+F 3 "~" H 5100 3900 50  0001 C CNN
+	1    5100 3900
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0104
+U 1 1 62D96FB8
+P 2800 3125
+F 0 "#PWR0104" H 2800 2875 50  0001 C CNN
+F 1 "GND" H 2805 2952 50  0000 C CNN
+F 2 "" H 2800 3125 50  0001 C CNN
+F 3 "" H 2800 3125 50  0001 C CNN
+	1    2800 3125
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:VCC #PWR0105
+U 1 1 62D75E5C
+P 2625 3300
+F 0 "#PWR0105" H 2625 3150 50  0001 C CNN
+F 1 "VCC" H 2642 3473 50  0000 C CNN
+F 2 "" H 2625 3300 50  0001 C CNN
+F 3 "" H 2625 3300 50  0001 C CNN
+	1    2625 3300
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	2075 2900 2625 2900
+Text Label 2625 2900 2    50   ~ 0
+PULSE_OUT
+Wire Wire Line
+	3475 2975 3925 2975
+Wire Wire Line
+	3925 3175 3175 3175
+Wire Wire Line
+	3175 3175 3175 3100
+Wire Wire Line
+	3175 3250 3175 3175
+Connection ~ 3175 3175
+Wire Wire Line
+	3175 3550 3175 3625
+Wire Wire Line
+	3175 3625 3800 3625
+Connection ~ 3800 3625
+Connection ~ 3175 3625
+Wire Wire Line
+	3175 3925 3175 3950
+Text Label 3475 2975 0    50   ~ 0
+PULSE_OUT
+Wire Wire Line
+	3175 2800 3175 2575
+Wire Wire Line
+	3175 2575 4425 2575
+Connection ~ 4425 2575
+Wire Wire Line
+	4425 2575 4425 2500
+Wire Wire Line
+	4925 3375 5300 3375
+Wire Wire Line
+	5300 3375 5300 2575
+Wire Wire Line
+	4425 2575 5300 2575
+Wire Wire Line
+	5200 2975 5200 3625
+Wire Wire Line
+	4925 2975 5200 2975
+Wire Wire Line
+	3800 3625 5200 3625
+Wire Wire Line
+	4925 3175 5100 3175
+Wire Wire Line
+	5100 3175 5100 3750
+$Comp
+L power:GND #PWR0106
+U 1 1 62DA1789
+P 5100 4075
+F 0 "#PWR0106" H 5100 3825 50  0001 C CNN
+F 1 "GND" H 5105 3902 50  0000 C CNN
+F 2 "" H 5100 4075 50  0001 C CNN
+F 3 "" H 5100 4075 50  0001 C CNN
+	1    5100 4075
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5100 4075 5100 4050
+$Comp
+L Connector:Conn_01x02_Male J2
+U 1 1 62DA7976
+P 1900 3625
+F 0 "J2" H 1250 3650 50  0000 C CNN
+F 1 "Conn_01x02_Male" H 1525 3550 50  0000 C CNN
+F 2 "myComponents:CopperPad_2x0.75" H 1900 3625 50  0001 C CNN
+F 3 "~" H 1900 3625 50  0001 C CNN
+	1    1900 3625
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2900 3950 3175 3950
+Connection ~ 3175 3950
+Wire Wire Line
+	3175 3950 3175 4075
+$Comp
+L Device:CP C3
+U 1 1 62DB074C
+P 5575 3200
+F 0 "C3" H 5693 3246 50  0000 L CNN
+F 1 "47u16V" H 5693 3155 50  0000 L CNN
+F 2 "Capacitor_THT:CP_Radial_D7.5mm_P2.50mm" H 5613 3050 50  0001 C CNN
+F 3 "~" H 5575 3200 50  0001 C CNN
+	1    5575 3200
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5575 3050 5575 2575
+Wire Wire Line
+	5575 2575 5300 2575
+Connection ~ 5300 2575
+Wire Wire Line
+	2075 3000 2175 3000
+$Comp
+L Connector:Conn_01x04_Male J1
+U 1 1 62DCD863
+P 1875 2900
+F 0 "J1" H 1983 3181 50  0000 C CNN
+F 1 "Conn_01x04_Male" H 1983 3090 50  0000 C CNN
+F 2 "myComponents:CopperPad_4x4_withZipTie" H 1875 2900 50  0001 C CNN
+F 3 "~" H 1875 2900 50  0001 C CNN
+	1    1875 2900
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2075 2800 2175 2800
+$Comp
+L Device:C C1
+U 1 1 62DDB7BD
+P 3175 3775
+F 0 "C1" H 3290 3821 50  0000 L CNN
+F 1 "Cx" H 3290 3730 50  0000 L CNN
+F 2 "myComponents:Capker_L4.6mm_W2.0mm_P2.50mm" H 3213 3625 50  0001 C CNN
+F 3 "~" H 3175 3775 50  0001 C CNN
+	1    3175 3775
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4425 3575 4425 4075
+$Comp
+L power:GND #PWR0107
+U 1 1 62DE0768
+P 5575 4075
+F 0 "#PWR0107" H 5575 3825 50  0001 C CNN
+F 1 "GND" H 5580 3902 50  0000 C CNN
+F 2 "" H 5575 4075 50  0001 C CNN
+F 3 "" H 5575 4075 50  0001 C CNN
+	1    5575 4075
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5575 3350 5575 4075
+Wire Wire Line
+	2625 3100 2625 3300
+Wire Wire Line
+	2075 3100 2625 3100
+Wire Wire Line
+	2175 2800 2175 3000
+Connection ~ 2175 3000
+Wire Wire Line
+	2800 3000 2800 3125
+Wire Wire Line
+	2175 3000 2800 3000
+$Comp
+L Connector:Conn_01x01_Female J3
+U 1 1 62D7B783
+P 1925 4450
+F 0 "J3" H 1953 4476 50  0000 L CNN
+F 1 "Conn_01x01_Female" H 1953 4385 50  0000 L CNN
+F 2 "myComponents:4mmcableSteainRelief" H 1925 4450 50  0001 C CNN
+F 3 "~" H 1925 4450 50  0001 C CNN
+	1    1925 4450
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2100 3725 2900 3725
+Wire Wire Line
+	2900 3725 2900 3950
+Wire Wire Line
+	2100 3625 3175 3625
+$EndSCHEMATC
