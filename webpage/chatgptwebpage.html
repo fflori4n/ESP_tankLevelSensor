@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Reservoir Status</title>
+    <style>
+        /* center the content */
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* style the reservoir container */
+        .reservoir-container {
+            width: 80%;
+            max-width: 300px;
+            height: 200px;
+            border: 2px solid black;
+            position: relative;
+        }
+
+        /* style the water level */
+        .water-level {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: calc(100% - var(--water-percentage));
+            width: 100%;
+            background-color: blue;
+            transition: height 0.5s ease-in-out;
+        }
+
+        /* style the labels */
+        .label {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="reservoir-container">
+        <div class="water-level" style="--water-percentage: 50%"></div>
+    </div>
+    <div class="label">Percentage of Water:</div>
+    <div id="water-percentage">50%</div>
+    <div class="label">Liters in Reservoir:</div>
+    <div id="liters-in-reservoir">1000 L</div>
+    <div class="label">Flow Rate:</div>
+    <div id="flow-rate">10 L/min</div>
+    <div class="label">Average Flow Rate:</div>
+    <div id="average-flow-rate">8 L/min</div>
+    <div class="label">Measured Liters:</div>
+    <div id="measured-liters">200 L</div>
+    <div class="label">Total Liters:</div>
+    <div id="total-liters">5000 L</div>
+    <div class="label">Battery Voltage:</div>
+    <div id="battery-voltage">12 V</div>
+</body>
+</html>
+

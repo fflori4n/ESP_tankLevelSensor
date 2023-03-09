@@ -163,6 +163,26 @@ class Display8x8 {
     void setDecPoint(char* str, byte index) {
       str[index] = 1;
     }
+    void printConfirm(byte twists){
+      char char1, char2;
+      char printBuff[] = "                ";
+      char decBuff[] = "                ";
+
+      for(int i=0; i < twists; i++){
+        printBuff[i] = '.';
+      }
+      if(twists > 8){
+        snprintf(printBuff, 17, "........      OK");
+      }
+
+      digitalWrite(MAX7219_CS, HIGH);
+      for (int j = 0; j < 8; j++) {
+
+        char1 = printBuff[j];
+        char2 = printBuff[j + 8];
+        writeChar((j + 1), char1, char2, decBuff[j], decBuff[j + 8]);
+      }
+    }
     void printMenu(byte page, unsigned int percent, int flow, int secsTTedge, int lvlStatus, int freq, int batv, int nonCorrectedLut, int correctedLut) {
       char char1, char2;
       char printBuff[] = "                ";
@@ -226,8 +246,16 @@ class Display8x8 {
       switch (page) {
         case 0: /// print status
           {
-            snprintf(printBuff, 17, "%c%c%c%c%c%c%c%c%c%c %c%c %c%c", flowSgn, flow2, flow1, flow0, lvl3, lvl2, lvl1, lvl0, levelStatusChar, ttAverageSgn, ttmin1, ttmin0, ttsec1, ttsec0);
-            setDecPoint(decBuff, 6);
+            if((int)freq <= 0){          /// if sensor not connected, print error to display, else print sensor readings to display
+              snprintf(printBuff, 17, "ERR     NO CON  ");
+            }
+            else if((int)freq >= 150000){
+              snprintf(printBuff, 17, "SENS    FAULT   ");
+            }
+            else{
+              snprintf(printBuff, 17, "%c%c%c%c%c%c%c%c%c%c %c%c %c%c", flowSgn, flow2, flow1, flow0, lvl3, lvl2, lvl1, lvl0, levelStatusChar, ttAverageSgn, ttmin1, ttmin0, ttsec1, ttsec0);
+              setDecPoint(decBuff, 6);
+            } 
           }
           break;
         case 1: /// view raw counts from probe
@@ -247,13 +275,17 @@ class Display8x8 {
           snprintf(printBuff, 17, "WIFI    %s", wifiEnabledStr);
           break;
         case 6:
-          snprintf(printBuff, 17, "FREQ    %d%d%d%d%d%d%d%d", (freq % 100000000) / 10000000, (freq % 10000000) / 1000000, (freq % 1000000) / 100000, (freq % 100000) / 10000, (freq % 10000) / 1000, (freq % 1000) / 100, (freq % 100) / 10, (freq % 10));
+          snprintf(printBuff, 17, "               .");
           break;
         case 7: /// blank
-          snprintf(printBuff, 17, "               .", wifiEnabledStr);
+          snprintf(printBuff, 17, "FREQ    %d%d%d%d%d%d%d%d", (freq % 100000000) / 10000000, (freq % 10000000) / 1000000, (freq % 1000000) / 100000, (freq % 100000) / 10000, (freq % 10000) / 1000, (freq % 1000) / 100, (freq % 100) / 10, (freq % 10));
           break;
         case 8:
           snprintf(printBuff, 17, "C   %d%d%d%dL   %d%d%d%d",(nonCorrectedLut % 10000) / 1000, (nonCorrectedLut % 1000) / 100, (nonCorrectedLut % 100) / 10, (nonCorrectedLut % 10),  (correctedLut % 10000) / 1000, (correctedLut % 1000) / 100, (correctedLut % 100) / 10, (correctedLut % 10));
+          break;
+
+        case 99:
+          snprintf(printBuff, 17, "........        ");
           break;
       }
 

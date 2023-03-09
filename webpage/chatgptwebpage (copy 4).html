@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Water Reservoir Status</title>
+    <style>
+        body {
+            background-color: #f1f1f1;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            margin: auto;
+            padding: 20px;
+            max-width: 500px;
+            background-color: #fff;
+            border-radius: 10px;
+        }
+        .label {
+            float: left;
+            clear: both;
+            width: 50%;
+            padding: 5px 0;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .value {
+            float: center;
+            width: 50%;
+            padding: 5px 0;
+            margin-bottom: 5px;
+            text-align: left;
+        }
+        .unit {
+            float: right;
+            width: 50%;
+            padding: 5px 0;
+            margin-bottom: 5px;
+            text-align: right;
+        }
+        .reservoir-container {
+            margin: auto;
+            width: 80%;
+            height: 200px;
+            position: relative;
+            background-color: #ddd;
+            border-radius: 50px;
+        }
+        .water-level {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: var(--water-percentage);
+            background-color: blue;
+            border-radius: 50px 50px 0 0;
+        }
+        .valve {
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--valve-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            color: white;
+        }
+        .valve::before {
+            content: "";
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 30px;
+            background-color: #bbb;
+            border-radius: 5px;
+        }
+        .reservoir-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3em;
+            font-weight: bold;
+            color: blue;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="reservoir-container">
+            <div class="water-level" style="--water-percentage: 50%"></div>
+            <div class="valve" style="--valve-color: #7f8c8d">
+                <span id="valve-status">Open</span>
+            </div>
+            <div class="reservoir-label" id="reservoir-percentage">50%</div>
+        </div>
+        <div class="label">Percentage of Water:</div>
+        <div class="value" id="percentage-of-water">50</div>
+        <div class="unit">%</div>
+        <div class="label">Liters in Reservoir:</div>
+        <div class="value" id="liters-in-reservoir">1500</div>
+        <div class="unit">L</div>
+        <div class="label">Flow Rate:</div>
+ 	<div class="value" id="flow-rate">10</div>
+        <div class="unit">L/min</div>
+        <div class="label">Average Flow Rate:</div>
+        <div class="value" id="average-flow-rate">7</div>
+        <div class="unit">L/min</div>
+        <div class="label">Measured Liters:</div>
+        <div class="value" id="measured-liters">200</div>
+        <div class="unit">L</div>
+        <div class="label">Total Liters:</div>
+        <div class="value" id="total-liters">5000</div>
+        <div class="unit">L</div>
+        <div class="label">Battery Voltage:</div>
+        <div class="value" id="battery-voltage">12</div>
+        <div class="unit">V</div>
+    </div>
+    <script>
+        // Simulating data update
+        setInterval(() => {
+            document.getElementById("percentage-of-water").textContent = Math.floor(Math.random() * 101);
+            document.getElementById("liters-in-reservoir").textContent = Math.floor(Math.random() * 10000);
+            document.getElementById("flow-rate").textContent = Math.floor(Math.random() * 21);
+            document.getElementById("average-flow-rate").textContent = Math.floor(Math.random() * 11);
+            document.getElementById("measured-liters").textContent = Math.floor(Math.random() * 501);
+            document.getElementById("total-liters").textContent = Math.floor(Math.random() * 100000);
+            document.getElementById("battery-voltage").textContent = (Math.random() * (13 - 11) + 11).toFixed(2);
+            const valveStatus = Math.random() < 0.5 ? "Open" : "Closed";
+            document.getElementById("valve-status").textContent = valveStatus;
+            const valveColor = (valveStatus === "Open" ? "#2ecc71" : "#e74c3c");
+            document.documentElement.style.setProperty("--valve-color", valveColor);
+            const reservoirPercentage = document.getElementById("percentage-of-water").textContent + "%";
+            document.getElementById("reservoir-percentage").textContent = reservoirPercentage;
+            document.documentElement.style.setProperty("--water-percentage", reservoirPercentage);
+        }, 3000);
+    </script>
+</body>
+</html>
