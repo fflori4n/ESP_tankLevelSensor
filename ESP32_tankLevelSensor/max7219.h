@@ -107,14 +107,14 @@ class Display8x8 {
       digitalWrite(MAX7219_CS, LOW);                          /// start transmission
 
       char out = this->to7SegmentChar(char2);
-      if(disp2 == 1){
+      if (disp2 == 1) {
         out |= 0b10000000;
       }
       shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, (9 - address));  /// Byte 0 - index to change - display 0
       shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, out);     /// Byte 1 - new character - display 0
 
       out = this->to7SegmentChar(char1);
-      if(disp1 == 1){
+      if (disp1 == 1) {
         out |= 0b10000000;
       }
       shiftOut(MAX7219_DIN, MAX7219_CLK, MSBFIRST, (9 - address));  /// Byte 0 - index to change - display 0
@@ -157,87 +157,104 @@ class Display8x8 {
 
         char1 = printBuff[j];
         char2 = printBuff[j + 8];
-        writeChar((j + 1), char1, char2,0,0);
+        writeChar((j + 1), char1, char2, 0, 0);
       }
     }
     void setDecPoint(char* str, byte index) {
       str[index] = 1;
     }
-    void printMenu(byte page, unsigned int percent, int flow, int secsTTedge, int lvlStatus, int freq, int batv) {
+    void printMenu(byte page, unsigned int percent, int flow, int secsTTedge, int lvlStatus, int freq, int batv, int nonCorrectedLut, int correctedLut) {
       char char1, char2;
       char printBuff[] = "                ";
       char decBuff[] = "                ";
 
+
+      char lvl3 = ' ', lvl2 = ' ', lvl1 = ' ', lvl0 = ' ';
+      char flow2 = ' ', flow1 = ' ', flow0 = ' ', flowSgn = ' ';
+      char levelStatusChar = ' ';
+      char ttmin1 = ' ', ttmin0 = ' ', ttsec1 = ' ', ttsec0 = ' ';
+      char ttAverageSgn = 'A';
+
+      char * wifiEnabledStr = " ON";
+      //char * wifiEnabledStr = "OFF";
+      
+      percent = constrain((percent), 0, 1000);
+      lvl0 = '0' + (percent % 10);
+      lvl1 = '0' + (percent % 100) / 10;
+      if (percent > 99) {
+        lvl2 = '0' + (percent % 1000) / 100;
+      }
+      if (percent > 999) {
+        lvl3 = '0' + (percent % 10000) / 1000;
+      }
+
+      levelStatusChar = '~';
+      if (abs(flow) >= 50) {
+        if (flow > 0) {
+          levelStatusChar = '<';
+        }
+        else {
+          levelStatusChar = '>';
+        }
+      }
+      if (secsTTedge / 10000 == 1) {
+        ttAverageSgn = 'C';
+        if (flow < 0) {
+          ttAverageSgn = 'F';
+        }
+      }
+
+
+      flow = constrain(flow, -999, 999);
+      if (flow < 0) {
+        flowSgn = '-';
+      }
+      flow = abs(flow);
+      flow0 = '0' + (flow % 10);
+      if (flow > 10) {
+        flow1 = '0' + ((flow % 100) / 10);
+      }
+      if (flow > 100) {
+        flow2 = '0' + ((flow % 1000) / 100);
+      }
+
+      ttsec0 = '0' + (secsTTedge % 10); //((secsTTedge % 60) % 10);
+      ttsec1 = '0' + (secsTTedge % 100) / 10; //((secsTTedge % 60) / 10);
+      ttmin0 = '0' + (secsTTedge % 1000) / 100; //((secsTTedge / 60) % 10);
+      ttmin1 = '0' + (secsTTedge % 10000) / 1000; //constrain(((secsTTedge / 60) / 10), 0, 9);
+
       switch (page) {
         case 0: /// print status
           {
-            char lvl3 = ' ', lvl2 = ' ', lvl1 = ' ', lvl0 = ' ';
-            char flow2 = ' ', flow1 = ' ', flow0 = ' ', flowSgn = ' ';
-            char levelStatusChar = ' ';
-            char ttmin1 = ' ', ttmin0 = ' ', ttsec1 = ' ', ttsec0 = ' ';
-            char ttAverageSgn = 'A';
-
-            percent = constrain((percent), 0, 1000);
-            lvl0 = '0' + (percent % 10);
-            lvl1 = '0' + (percent % 100) / 10;
-            if (percent > 99) {
-              lvl2 = '0' + (percent % 1000) / 100;
-            }
-            if (percent > 999) {
-              lvl3 = '0' + (percent % 10000) / 1000;
-            }
-
-            levelStatusChar = '~';
-            if (abs(flow) >= 50) {
-              if (flow > 0) {
-                levelStatusChar = '<';
-              }
-              else {
-                levelStatusChar = '>';
-              }
-            }
-            if (secsTTedge / 10000 == 1) {
-              ttAverageSgn = 'C';
-              if (flow < 0) {
-                ttAverageSgn = 'F';
-              }
-            }
-
-
-            flow = constrain(flow, -999, 999);
-            if (flow < 0) {
-              flowSgn = '-';
-            }
-            flow = abs(flow);
-            flow0 = '0' + (flow % 10);
-            if (flow > 10) {
-              flow1 = '0' + ((flow % 100) / 10);
-            }
-            if (flow > 100) {
-              flow2 = '0' + ((flow % 1000) / 100);
-            }
-
-            ttsec0 = '0' + (secsTTedge % 10); //((secsTTedge % 60) % 10);
-            ttsec1 = '0' + (secsTTedge % 100) / 10; //((secsTTedge % 60) / 10);
-            ttmin0 = '0' + (secsTTedge % 1000) / 100; //((secsTTedge / 60) % 10);
-            ttmin1 = '0' + (secsTTedge % 10000) / 1000; //constrain(((secsTTedge / 60) / 10), 0, 9);
-
-
             snprintf(printBuff, 17, "%c%c%c%c%c%c%c%c%c%c %c%c %c%c", flowSgn, flow2, flow1, flow0, lvl3, lvl2, lvl1, lvl0, levelStatusChar, ttAverageSgn, ttmin1, ttmin0, ttsec1, ttsec0);
             setDecPoint(decBuff, 6);
           }
           break;
-        case 1:
-          snprintf(printBuff, 17, "FREQ    %d%d%d%d%d%d%d%d", (freq % 100000000) / 10000000, (freq % 10000000) / 1000000, (freq % 1000000) / 100000, (freq % 100000) / 10000, (freq % 10000) / 1000, (freq % 1000) / 100, (freq % 100) / 10, (freq % 10));
-          break;
-        case 2:
+        case 1: /// view raw counts from probe
           snprintf(printBuff, 17, "BAt     %d%d%d%d  ", ((batv % 10000) / 1000), ((batv % 1000) / 100), ((batv % 100) / 10), (batv % 10));
           setDecPoint(decBuff, 9);
           break;
-          /*case 3:
-            snprintf(printBuff, 17, "FiLL SEC 1 45", 1,2,3,7);
-            //setDecPoint(printBuff, 9);
-            break;*/
+        case 2: /// print battery voltage
+          snprintf(printBuff, 17, "LOG  %c%c%c%c", flowSgn, flow2, flow1, flow0);
+          break;
+        case 3: ///
+          snprintf(printBuff, 17, "totAL %c%c%c%c", flowSgn, flow2, flow1, flow0);
+          break;
+        case 4:
+          snprintf(printBuff, 17, "FLOLW %c%c%c%c", flowSgn, flow2, flow1, flow0);
+          break;
+        case 5:
+          snprintf(printBuff, 17, "WIFI    %s", wifiEnabledStr);
+          break;
+        case 6:
+          snprintf(printBuff, 17, "FREQ    %d%d%d%d%d%d%d%d", (freq % 100000000) / 10000000, (freq % 10000000) / 1000000, (freq % 1000000) / 100000, (freq % 100000) / 10000, (freq % 10000) / 1000, (freq % 1000) / 100, (freq % 100) / 10, (freq % 10));
+          break;
+        case 7: /// blank
+          snprintf(printBuff, 17, "               .", wifiEnabledStr);
+          break;
+        case 8:
+          snprintf(printBuff, 17, "C   %d%d%d%dL   %d%d%d%d",(nonCorrectedLut % 10000) / 1000, (nonCorrectedLut % 1000) / 100, (nonCorrectedLut % 100) / 10, (nonCorrectedLut % 10),  (correctedLut % 10000) / 1000, (correctedLut % 1000) / 100, (correctedLut % 100) / 10, (correctedLut % 10));
+          break;
       }
 
       digitalWrite(MAX7219_CS, HIGH);
@@ -245,7 +262,7 @@ class Display8x8 {
 
         char1 = printBuff[j];
         char2 = printBuff[j + 8];
-        writeChar((j + 1), char1, char2, decBuff[j], decBuff[j+8]);
+        writeChar((j + 1), char1, char2, decBuff[j], decBuff[j + 8]);
       }
     }
 

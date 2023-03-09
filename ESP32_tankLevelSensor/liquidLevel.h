@@ -298,7 +298,7 @@ class LiquidLevel{
     if(levelCalcRDY){                   /// There is a new reading from sensor for level - calculate water level
       levelCalcRDY = false;
 
-      double tankLiters = getLUTmms(this->avgFreq, true, false);//lutLevel(this->avgFreq, false);                              /// get measured liters
+      double tankLiters = (getLUTmms(this->avgFreq, true, false)/1040)*2000;//lutLevel(this->avgFreq, false);                              /// get measured liters
       filteredLiters = levelLitersFilter.getFilt(tankLiters);                   /// kalman filter the liters
       percent = ((tankLiters - emptyLiters) *100) / (fullLiters - emptyLiters); /// calculate % of 'fullness'
     }
@@ -307,7 +307,7 @@ class LiquidLevel{
 
 
       //flowNowLiters = freqToLitersLinear(flowNowFreq);  ///// TODO: LUT ***************************************************
-      flowNowLiters = getLUTmms(flowNowFreq, true, verboseMode) * (fullLiters/100);//(lutLevel(flowNowFreq, verboseMode) * (fullLiters/100)); /// get measured liters
+      flowNowLiters = (getLUTmms(flowNowFreq, true, verboseMode)/1040) * fullLiters;//(lutLevel(flowNowFreq, verboseMode) * (fullLiters/100)); /// get measured liters
 
       if(this->flowPrevLiters == 99999999 && flowNowLiters != 99999999){    /// if this is the first measurement, use this value as previous value
         this->flowPrevLiters = flowNowLiters;
@@ -508,9 +508,8 @@ class LiquidLevel{
    */
   String getInfoStr(){
     /// TankLevel/ TankLiters/ Flow/ TMUntilEmpty/ SpentWater/ AverageFlow/ DischStarted/ Last fill time/ 
-    return String(this->percent) + "/" + String(this->filteredLiters) + "/" + String(this->flow) + "/" +String(this->ttEdge) + "/" +String(this->totalWaterOut) +"/" + String(this->avrgOutFlow)+ "/" + String(this->dischStartTm)+"/" + String(this->lastFilledTime)+ "/" + String(this->lastFillDuration);  
-  }
-  /**
+    return String(this->percent) + "/" + String(this->filteredLiters) + "/" + "01:23:45" + "/"+ String(this->flow) + "/" + String(111) + "/" + String(222) + "/" + String(1234567) + "/" + String(98765432)+ "/" + String(12.5) + "/" + + "192.168.1.1";
+  }/**
    * @brief Set the Total Out object
    * 
    * @param totalOut 

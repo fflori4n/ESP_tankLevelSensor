@@ -5,6 +5,10 @@
 #define LED_GREEN 33                /// green LED pin
 #define CALIB_SWITCH_PIN 19         /// switch for going into calibration mode
 
+#define ENCODER_A_PIN 18
+#define ENCODER_B_PIN 5
+#define ENCODER_BTN 17
+
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 //#include <SPIFFS.h>
@@ -56,6 +60,12 @@ volatile double levelSensPulses = 0;          /// pulses measured from capacitiv
 volatile double rawPulse = 0;
 volatile double newReading = -1;
 
+volatile int encoderInc = 0;
+volatile int buttonPressed = 0;
+
+int dispMenuNumber = 0;
+bool editMode = false;
+
 /// TIMER ISR SETUP
 hw_timer_t * timer = NULL;
 
@@ -80,6 +90,44 @@ void IRAM_ATTR timerISR() {   /// timer interrupt routine - executed every 100ms
   levelSensPulses = 0;
 }
 
+int readVpVoltage(){
+  #define VPPIN 36
+  #define VP_SCALE 12.26/1182  /// real voltage / ADC value
+  
+  static int vp = 1350;
+  vp = (vp * 0.95) + ((VP_SCALE*analogRead(VPPIN) * 100) * 0.05);
+  /*Serial.print("VBAT| ");
+  Serial.println(vp);
+  Serial.print("ADC_BAT| ");
+  Serial.println(analogRead(VPPIN));*/
+  return vp;
+}
+void encoder(){
+  static byte prevEncoder = 0;
+  noInterrupts();
+
+  byte encoder = ((digitalRead(ENCODER_B_PIN) && 0b00000001) << 1) | (digitalRead(ENCODER_A_PIN) && 0b00000001);
+
+  // 1320 0231
+  switch(encoder){
+    case 1:
+      if(prevEncoder == 0){
+        Serial.println("Encoder right");
+        encoderInc++;
+      }
+      else if(prevEncoder == 3){
+        Serial.println("Encoder left");
+        encoderInc--;
+      }
+      break;
+  }
+  prevEncoder = encoder;
+
+  if(!digitalRead(ENCODER_BTN)){
+    buttonPressed++;
+  }
+  interrupts();
+}
 void setup(){
   Serial.begin(115200);           /// start DBG serial
   EEPROM.begin(EEPROM_SIZE);      /// start EEprom
@@ -130,6 +178,13 @@ void setup(){
   pinMode(13, INPUT_PULLUP);                                                  /// Capacitive Sensor pin -> pull up
   attachInterrupt(13, isr, FALLING);                                          /// Capacitive pin falling edge -> trigger interrupt
 
+  pinMode(ENCODER_A_PIN, INPUT_PULLUP); 
+  pinMode(ENCODER_B_PIN, INPUT_PULLUP);
+  pinMode(ENCODER_BTN, INPUT_PULLUP);  
+  attachInterrupt(ENCODER_A_PIN, encoder, CHANGE); // Need to detect both rising or falling signal
+  attachInterrupt(ENCODER_B_PIN, encoder, CHANGE);
+  attachInterrupt(ENCODER_BTN, encoder, CHANGE);
+
   timer = timerBegin(0, 80, true);                                            /// Initialise timer interrupt for every 100ms
   timerAttachInterrupt(timer, &timerISR, true);
   timerAlarmWrite(timer, 100000, true);
@@ -151,7 +206,21 @@ void loop(){
   
   delay(_mainLoopDelay);           /// delay
   
-  levelSens.update();              /// update display values          
+  levelSens.update();              /// update display values   
+  readVpVoltage(); 
+
+  #define DISP_NUMOF_PAGES 9
+  if(!editMode){
+    if(encoderInc != 0){
+      if( (dispMenuNumber + encoderInc) >= 0 && (dispMenuNumber + encoderInc) < DISP_NUMOF_PAGES){
+        dispMenuNumber+= encoderInc;
+        Serial.print(dispMenuNumber);
+      }
+      encoderInc = 0;
+    }
+  }
+
+    
   if((int)levelSens.avgFreq == 0){          /// if sensor not connected, print error to display, else print sensor readings to display
      displays.printStr("ERR     NO CON  ");
   }
@@ -159,7 +228,7 @@ void loop(){
      displays.printStr("SENS    FAULT   ");
   }
   else{
-    displays.printMenu(0,(levelSens.percent*10),levelSens.flow,levelSens.getTTedgeInt(),-1, levelSens.avgFreq,1132);
+    displays.printMenu(dispMenuNumber,(levelSens.percent*10),levelSens.flow,levelSens.getTTedgeInt(),-1, levelSens.avgFreq, readVpVoltage(), (int)(lut1Outputmms), (int)(lut2Outputmms));  
   }
 
   for(int i=0; i < 100; i++){
