@@ -11,12 +11,21 @@ class LiquidLevel{
   //#define PRINT_STATUS 1
   //#define PRINT_LOGDBG 1
   //#define PRINT_STATE
+
+  #define SENS_BOTTOM_OFFSET 0
+  #define SENS_TOP_OFFSET 0
+  #define MAX_LITERS 2000
+  #define SENS_MAX_LENGTHmm 1040
   
   private:
     
   public:
 
     bool noConErr = false;        /// sensor not connected error
+
+    double submergedPercent = -1;
+    double litersInReservoir = -1;
+    double prevLitersInReservoir = -1;
 
     double fullLiters;
     double emptyLiters;
@@ -58,11 +67,8 @@ class LiquidLevel{
 
     float tmCycle = 0;
 
-    float tmSinceLastFill = 0;
-    float tmSinceLastSprayStart = 0;
-    float tmSinceLastOpen = 0;
-
     KalmanFilter levelLitersFilter;
+    KalmanFilter flowFilter;
 
     /**
      * @brief Constructor for liquid level sensor object
@@ -73,13 +79,12 @@ class LiquidLevel{
      * @param emptyFreq frequency when reservoir is empty
      * 
      */
-    LiquidLevel(double fullLiters, double emptyLiters, double fullFreq, double emptyFreq){
-      this->fullLiters = fullLiters;
+    LiquidLevel(double fullLiters, double emptyLiters){
+      //this->fullLiters = fullLiters;
       this->emptyLiters = emptyLiters;
-      this->fullFreq = fullFreq;
-      this->emptyFreq = emptyFreq;
 
       levelLitersFilter.setRH(10,1);
+      //flowFilter.setRH(5,1);
     }
 
     /**
@@ -94,6 +99,8 @@ class LiquidLevel{
       #define AVGWEIGHT 0.95                                              /// weight of previous measurement in average filtering
       #define FLOW_MEASURE_INTERVAL 1000                                  /// log variables for flow calculation every  1000ms
       static double calcFlowDt = 0;
+
+      
       this->freq = freq;
       this->dt = dt; 
 
@@ -236,9 +243,9 @@ class LiquidLevel{
       Serial.print("Average flow out: ");
       Serial.println(this->avrgOutFlow);
     }
-    double mapf(double x, double in_min, double in_max, double out_min, double out_max){
+    /*double mapf(double x, double in_min, double in_max, double out_min, double out_max){
       return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-    }
+    }*/
 
   void update(bool verboseMode = true){
 
@@ -252,42 +259,60 @@ class LiquidLevel{
       return;
     }
 
+    #define SENS_BOTTOM_OFFSET 0
+    #define SENS_TOP_OFFSET 0
+    #define MAX_LITERS 2000
+    #define SENS_MAX_LENGTHmm 1040
+
     if(levelCalcRDY){                   /// There is a new reading from sensor for level - calculate water level
       levelCalcRDY = false;
 
-      double tankLiters = (getLUTmms(this->avgFreq, true, false)/1040)*2000;//lutLevel(this->avgFreq, false);                              /// get measured liters
-      filteredLiters = levelLitersFilter.getFilt(tankLiters);                   /// kalman filter the liters
-      percent = ((tankLiters - emptyLiters) *100) / (fullLiters - emptyLiters); /// calculate % of 'fullness'
+      double sensorSubmergedmm = getLUTmms(this->avgFreq, true, false);
+      this->submergedPercent = (sensorSubmergedmm + SENS_BOTTOM_OFFSET)/( SENS_BOTTOM_OFFSET + SENS_MAX_LENGTHmm + SENS_TOP_OFFSET);
+      this->litersInReservoir = levelLitersFilter.getFilt(submergedPercent*MAX_LITERS);
+      percent = submergedPercent*100;
+
     }
     if(flowCalcRDY){                    /// There is a new reading from sensor for flow - calculate flow
       flowCalcRDY = false;
 
+      double sensorSubmergedmm = getLUTmms(this->avgFreq, true, false);
+      this->submergedPercent = (sensorSubmergedmm + SENS_BOTTOM_OFFSET)/( SENS_BOTTOM_OFFSET + SENS_MAX_LENGTHmm + SENS_TOP_OFFSET);
+      this->litersInReservoir = levelLitersFilter.getFilt(submergedPercent*MAX_LITERS);
 
-      //flowNowLiters = freqToLitersLinear(flowNowFreq);  ///// TODO: LUT ***************************************************
-      flowNowLiters = (getLUTmms(flowNowFreq, true, verboseMode)/1040) * fullLiters;//(lutLevel(flowNowFreq, verboseMode) * (fullLiters/100)); /// get measured liters
-
-      if(this->flowPrevLiters == 99999999 && flowNowLiters != 99999999){    /// if this is the first measurement, use this value as previous value
-        this->flowPrevLiters = flowNowLiters;
+      if(this->prevLitersInReservoir == -1 && this->litersInReservoir != -1){    /// if this is the first measurement, use this value as previous value
+        this->prevLitersInReservoir = this->litersInReservoir;
       }
-      dLiters = this->flowPrevLiters - flowNowLiters; /// calculate difference between previous liters and current liters = flow [liters/1sec]
-      flowPrevLiters = flowNowLiters;
 
-      double newFlow = (dLiters / this-> flowDt) * 1000 * 60; /// (difference in liters / time of flow sampling) * 1000ms * 60 = [l/min]
+      double dLiters = this->litersInReservoir - this->prevLitersInReservoir;
+      this->prevLitersInReservoir = this->litersInReservoir;
 
-      //this->flow = calcRunningAvrg(newFlow);
+      double newFlow = (dLiters*((1000*60)/this->flowDt));
+      Serial.print("dliters:");
+      Serial.println((dLiters));
+      Serial.print("newFlow:");
+      Serial.println(newFlow);
 
-                                            /// apply non uniform filtering, idea like AIMD algorithm, flow can decrease fast, but can only increase slowly 
+      #define RISING_FILTERVAL 1/20    
+      #define FALLING_FILTERVAL 1/10 /// 1/n average last n
+      
+      /// apply non uniform filtering, idea like AIMD algorithm, flow can decrease fast, but can only increase slowly 
       if(abs(newFlow) < abs(this->flow)){   /// if flow is decreasing filter less
         this->flow = 0.8 * newFlow;
+        //this->flow = flowFilter.getFilt(newFlow * 0.8);
       }
       else{                                 /// if flow is increasing, filter more
+        //this->flow = flowFilter.getFilt(newFlow);
         this->flow =(0.9 * this->flow) + (0.005 * newFlow); //(0.80 * this->flow) + (0.2 * newFlow) ;
       }
+
       
     }
 
 
-    if(flow > minFlowIN && flow < minFlowOUT){            /// flow is close to zero, level is more or less static
+    #define MIN_OPENFLOW_FALLING -20
+    #define MIN_OPENFLOW_RISING 20
+    if(flow > MIN_OPENFLOW_FALLING && flow < MIN_OPENFLOW_RISING){            /// flow is close to zero, level is more or less static
       flowStatus = 0;                                     /// 0 - STATIC, 1 - OUT, 2 - IN
       this->ttEdge = -1;                                  /// time until tank empty/ or full is infinity
       digitalWrite(LED_BLUE, LOW);
@@ -296,7 +321,7 @@ class LiquidLevel{
       Serial.print(" Flow: Static ");
       #endif
     }
-    else if(flow > minFlowOUT){                                                 /// flow is not static - water level decreasing
+    else if(flow < MIN_OPENFLOW_FALLING){                                       /// flow is not static - water level decreasing
         this->avrgOutFlow = (this->avrgOutFlow * 0.8) + (this->flow * 0.2);     /// calculate average flow out - only if level is descending AND save to EEPROM
         this->ttEdge = abs((emptyLiters - filteredLiters) / flow);              /// calculate estimated time until reservoir is empty based on current flow
         this->ttEdgeAvgOpen = abs((emptyLiters - filteredLiters)/this->avrgOutFlow);/// calculate estimated time until reservoir is empty based on average flow

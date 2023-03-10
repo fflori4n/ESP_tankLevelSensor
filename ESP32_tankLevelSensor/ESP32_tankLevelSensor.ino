@@ -46,7 +46,7 @@ byte displayPages = 7;
 /// TIMER ISR SETUP
 hw_timer_t * timer = NULL;
 
-LiquidLevel levelSens(2000, 0, 16500, 46000); /// new instance of liquid level class for capacitive sensor
+LiquidLevel levelSens(2000, 0); /// new instance of liquid level class for capacitive sensor
 
 class CaptiveRequestHandler : public AsyncWebHandler {  /// Captive access point class
   public:
