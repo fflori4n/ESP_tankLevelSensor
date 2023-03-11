@@ -1,11 +1,6 @@
 
 class LiquidLevel{
   /// define memory locations in EEProm to contain total out and average flow variables
-  #define _totalOutH 0
-  #define _totalOutL 1
-  #define _avgOutFlowH 2
-  #define _avgOutFlowL 3
-
   /// flags for printing debug messeges 
   #define PRINT_RAWFREQ 1
   //#define PRINT_STATUS 1
@@ -26,19 +21,18 @@ class LiquidLevel{
     double submergedPercent = -1;
     double litersInReservoir = -1;
     double prevLitersInReservoir = -1;
+    double sensorSubmergedmm = 0;
 
-    double fullLiters;
-    double emptyLiters;
-    double fullFreq;
-    double emptyFreq;
-
-    double freq = -1;
-    double avgFreq = -1;
-    double dt = -1;
-    double sensorFreq = -1;
+    //double fullLiters;
+    //double emptyLiters;
+    //double fullFreq;
+    //double emptyFreq;
     
+    double rawFreq = -1;
+    double filteredFreq = -1;
+    double freqDt = -1;
+
     double dLiters = 0;
-    double filteredLiters = -1;
     double percent = -1;
     bool levelCalcRDY = false;
 
@@ -52,36 +46,28 @@ class LiquidLevel{
     double ttEdge = 0;
     double ttEdgeAvgOpen = 0;
 
-    double totalWaterOut = 0;
-    double totalWaterOutFLSH = 0;
+   // double totalWaterOut = 0;
+   // double totalWaterOutFLSH = 0;
     double avrgOutFlow=0;
 
-    unsigned int dischStartTm = 0;
-    unsigned int lastFilledTime = 0;
-    unsigned int lastFillDuration =0;
+   double totalWaterUsed = 0;
+   double measuredWaterUsed = 0;
+   double averageFallingFlow = 0;
+   double averageRisingFlow = 0;
+   
 
     unsigned int flowStatus = 0; /// 0 - STATIC, 1 - OUT, 2 - IN
     unsigned int levelStatus = 3; /// 0 - EMPTY, 1 - LOW, 2 - MID, 3 - HIGH, 4 - FULL
 
     float logIntervalCounter = 0;
-
     float tmCycle = 0;
 
     KalmanFilter levelLitersFilter;
-    KalmanFilter flowFilter;
+    //KalmanFilter flowFilter;
 
-    /**
-     * @brief Constructor for liquid level sensor object
-     * 
-     * @param fullLiters num of liters when reservoir is full
-     * @param emptyLiters num of liters when reservoir is empty
-     * @param fullFreq frequency when reservoir is full
-     * @param emptyFreq frequency when reservoir is empty
-     * 
-     */
     LiquidLevel(double fullLiters, double emptyLiters){
       //this->fullLiters = fullLiters;
-      this->emptyLiters = emptyLiters;
+      //this->emptyLiters = emptyLiters;
 
       levelLitersFilter.setRH(10,1);
       //flowFilter.setRH(5,1);
@@ -101,20 +87,20 @@ class LiquidLevel{
       static double calcFlowDt = 0;
 
       
-      this->freq = freq;
-      this->dt = dt; 
+      this->rawFreq = freq;
+      this->freqDt = dt; 
 
-      if(this->avgFreq == -1 && this->freq != -1){                        /// at initial measurement, use new value as average value
-        this->avgFreq = this->freq;
+      if(this->filteredFreq == -1 && freq != -1){                        /// at initial measurement, use new value as average value
+        this->filteredFreq = freq;
       }
-      this->avgFreq = ((avgFreq * AVGWEIGHT) + (freq * (1 - AVGWEIGHT))); /// weighted average filtering of new value and average value
+      this->filteredFreq = ((filteredFreq * AVGWEIGHT) + (freq * (1 - AVGWEIGHT))); /// weighted average filtering of new value and average value
       levelCalcRDY = true;                                                /// set flag, new values have been recorded time to recalculate level
 
       
       calcFlowDt+= dt;                                                    /// increase time passed since last flow calc.
       if(calcFlowDt >= FLOW_MEASURE_INTERVAL){                            /// Check if enough time has passed, to rerecord measurements for flow calc.
         this->flowDt = calcFlowDt;
-        this->flowNowFreq = this->avgFreq;
+        this->flowNowFreq = this->filteredFreq;
         this->flowCalcRDY = true;
         calcFlowDt = 0;
       }
@@ -145,7 +131,7 @@ class LiquidLevel{
           case 0:
               Serial.print("0");
               Serial.print(",");
-              Serial.println((int)this->freq);
+              Serial.println((int)this->rawFreq);
               calibrationStep++;
               tValveOpened = esp_timer_get_time();
             /*}*/
@@ -156,7 +142,7 @@ class LiquidLevel{
               prevEspTime = now;
               Serial.print((now - tValveOpened)/1000);
               Serial.print(",");
-              Serial.println((int)this->freq);
+              Serial.println((int)this->rawFreq);
             }
             if(digitalRead(CALIB_SWITCH_PIN) == 0){
               digitalWrite(LED_GREEN, LOW);
@@ -174,11 +160,21 @@ class LiquidLevel{
     * @brief Write 'total water out' and 'average flow' to non volatile EEPROM, these values remain even after microcontroller power off
     * Log interval changes depending on flow values, if flow is small, log period long, - if flow big, log period small
     */
+
+    #define EEPROM_TOTAL_WATER_USED_H 0
+    #define EEPROM_TOTAL_WATER_USED_L 1
+    #define EEPROM_MEASURED_WATER_USED_H 2
+    #define EEPROM_MEASURED_WATER_USED_L 3
+    #define EEPROM_FALLING_FLOW_H 4
+    #define EEPROM_FALLING_FLOW_L 5
+    #define EEPROM_RISING_FLOW_H 6
+    #define EEPROM_RISING_FLOW_L 7
+    
     void saveToEEPROM(){
-      return;
       #define _maxLogRate 1
       #define _minLogRate 60
-      #define _periodicLog false
+      //#define _periodicLog false
+      #define PRINT_LOGDBG
 
       static unsigned int minLogInterval = _maxLogRate * 60;
 
@@ -202,7 +198,12 @@ class LiquidLevel{
         minLogInterval = _minLogRate * 60;
         Serial.println("LOG LOG");
 
-        totalWaterOutFLSH = totalWaterOut;
+        writeToEEprom(this->totalWaterUsed, EEPROM_TOTAL_WATER_USED_L, EEPROM_TOTAL_WATER_USED_H, 1);
+        writeToEEprom(++this->measuredWaterUsed, EEPROM_MEASURED_WATER_USED_L, EEPROM_MEASURED_WATER_USED_H, 1);
+        writeToEEprom(++this->averageFallingFlow, EEPROM_FALLING_FLOW_L, EEPROM_FALLING_FLOW_H, 1);
+        writeToEEprom(++this->averageRisingFlow, EEPROM_RISING_FLOW_L, EEPROM_RISING_FLOW_H, 1);
+
+        /*totalWaterOutFLSH = totalWaterOut;
         Serial.print("writing total Out to EEPROM: ");
         Serial.println(totalWaterOut);
         if((abs(totalWaterOut - totalWaterOutFLSH) > 0.005*2000)){
@@ -215,16 +216,25 @@ class LiquidLevel{
         EEPROM.write(_avgOutFlowL, ((uint16_t)avrgOutFlow >> 0) & 0xFF);
         EEPROM.write(_avgOutFlowH, ((uint16_t)avrgOutFlow >> 8) & 0xFF);
         
+total water used: 51322.00
+measured water used: 101.00
+average falling flow: 65535.00
+average rising flow: 65535.00
+total water used: 51322.00
+measured water used: 101.00
+average falling flow: 0.00
+average rising flow: 0.00
 
-        EEPROM.commit();
+
+        EEPROM.commit();*/
 
         /// signal EEPROM write using green LED
         digitalWrite(LED_GREEN, HIGH);
-        delay(100);
+        delay(20);
         digitalWrite(LED_GREEN, LOW);
-        delay(100);
+        delay(20);
         digitalWrite(LED_GREEN, HIGH);
-        delay(100);
+        delay(20);
       }    
     }
     /**
@@ -232,16 +242,18 @@ class LiquidLevel{
      * 
      */
     void loadEEPROM(){
-      uint16_t totalWaterOut = (EEPROM.read(_totalOutH) << 8) | (EEPROM.read(_totalOutL) & 0xff);
-      this->totalWaterOut = totalWaterOutFLSH = totalWaterOut;
-      Serial.println("EEPROM: ");
-      Serial.print("Total water out: ");
-      Serial.println(totalWaterOut);
-
-      uint16_t avgOutFlow = (EEPROM.read(_avgOutFlowH) << 8) | (EEPROM.read(_avgOutFlowL) & 0xff);
-      this->avrgOutFlow = avgOutFlow;
-      Serial.print("Average flow out: ");
-      Serial.println(this->avrgOutFlow);
+      this->totalWaterUsed = readEEprom(EEPROM_TOTAL_WATER_USED_L, EEPROM_TOTAL_WATER_USED_H);
+      this->measuredWaterUsed = readEEprom(EEPROM_MEASURED_WATER_USED_L, EEPROM_MEASURED_WATER_USED_H);
+      this->averageFallingFlow = readEEprom(EEPROM_FALLING_FLOW_L, EEPROM_FALLING_FLOW_H);
+      this->averageRisingFlow = readEEprom(EEPROM_RISING_FLOW_L,EEPROM_RISING_FLOW_H);
+      Serial.print("total water used: ");
+      Serial.println(this->totalWaterUsed);
+      Serial.print("measured water used: ");
+      Serial.println(this->measuredWaterUsed);
+      Serial.print("average falling flow: ");
+      Serial.println(this->averageFallingFlow);
+      Serial.print("average rising flow: ");
+      Serial.println(this->averageRisingFlow);
     }
     /*double mapf(double x, double in_min, double in_max, double out_min, double out_max){
       return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -261,23 +273,28 @@ class LiquidLevel{
 
     #define SENS_BOTTOM_OFFSET 0
     #define SENS_TOP_OFFSET 0
-    #define MAX_LITERS 2000
     #define SENS_MAX_LENGTHmm 1040
+
+    #define MIN_OPENFLOW_FALLING -20
+    #define MIN_OPENFLOW_RISING 20
+
+    #define RESERVOIR_EMPTY_LITERS 0
+    #define RESERVOIR_FULL_LITERS 2000
 
     if(levelCalcRDY){                   /// There is a new reading from sensor for level - calculate water level
       levelCalcRDY = false;
 
-      double sensorSubmergedmm = getLUTmms(this->avgFreq, true, false);
-      this->submergedPercent = (sensorSubmergedmm + SENS_BOTTOM_OFFSET)/( SENS_BOTTOM_OFFSET + SENS_MAX_LENGTHmm + SENS_TOP_OFFSET);
-      this->litersInReservoir = levelLitersFilter.getFilt(submergedPercent*MAX_LITERS);
+      this->sensorSubmergedmm = getLUTmms(this->filteredFreq, true, false);
+      this->submergedPercent = (this->sensorSubmergedmm + SENS_BOTTOM_OFFSET)/( SENS_BOTTOM_OFFSET + SENS_MAX_LENGTHmm + SENS_TOP_OFFSET);
+      this->litersInReservoir = levelLitersFilter.getFilt(submergedPercent*RESERVOIR_FULL_LITERS);
       percent = submergedPercent*100;
 
     }
     if(flowCalcRDY){                    /// There is a new reading from sensor for flow - calculate flow
       flowCalcRDY = false;
 
-      double sensorSubmergedmm = getLUTmms(this->avgFreq, true, false);
-      this->submergedPercent = (sensorSubmergedmm + SENS_BOTTOM_OFFSET)/( SENS_BOTTOM_OFFSET + SENS_MAX_LENGTHmm + SENS_TOP_OFFSET);
+      this->sensorSubmergedmm = getLUTmms(this->filteredFreq, true, false);
+      this->submergedPercent = (this->sensorSubmergedmm + SENS_BOTTOM_OFFSET)/( SENS_BOTTOM_OFFSET + SENS_MAX_LENGTHmm + SENS_TOP_OFFSET);
       this->litersInReservoir = levelLitersFilter.getFilt(submergedPercent*MAX_LITERS);
 
       if(this->prevLitersInReservoir == -1 && this->litersInReservoir != -1){    /// if this is the first measurement, use this value as previous value
@@ -310,8 +327,7 @@ class LiquidLevel{
     }
 
 
-    #define MIN_OPENFLOW_FALLING -20
-    #define MIN_OPENFLOW_RISING 20
+    
     if(flow > MIN_OPENFLOW_FALLING && flow < MIN_OPENFLOW_RISING){            /// flow is close to zero, level is more or less static
       flowStatus = 0;                                     /// 0 - STATIC, 1 - OUT, 2 - IN
       this->ttEdge = -1;                                  /// time until tank empty/ or full is infinity
@@ -323,8 +339,8 @@ class LiquidLevel{
     }
     else if(flow < MIN_OPENFLOW_FALLING){                                       /// flow is not static - water level decreasing
         this->avrgOutFlow = (this->avrgOutFlow * 0.8) + (this->flow * 0.2);     /// calculate average flow out - only if level is descending AND save to EEPROM
-        this->ttEdge = abs((emptyLiters - filteredLiters) / flow);              /// calculate estimated time until reservoir is empty based on current flow
-        this->ttEdgeAvgOpen = abs((emptyLiters - filteredLiters)/this->avrgOutFlow);/// calculate estimated time until reservoir is empty based on average flow
+        this->ttEdge = abs((RESERVOIR_EMPTY_LITERS - this->litersInReservoir) / flow);              /// calculate estimated time until reservoir is empty based on current flow
+        this->ttEdgeAvgOpen = abs((RESERVOIR_EMPTY_LITERS - this->litersInReservoir)/this->avrgOutFlow);/// calculate estimated time until reservoir is empty based on average flow
         flowStatus = 1;                                                         /// 0 - STATIC, 1 - OUT, 2 - IN
 
         digitalWrite(LED_BLUE, HIGH);
@@ -334,7 +350,7 @@ class LiquidLevel{
         #endif
     }
     else{                                                                   /// flow is not static - water level increasing
-        this->ttEdge = abs((fullLiters - filteredLiters) / flow);           /// calculate estimated time until reservoir is full based on current flow
+        this->ttEdge = abs((RESERVOIR_FULL_LITERS - this->litersInReservoir) / flow);           /// calculate estimated time until reservoir is full based on current flow
         flowStatus = 2;                                                     /// 0 - STATIC, 1 - OUT, 2 - IN
         digitalWrite(LED_BLUE, HIGH);
         digitalWrite(LED_GREEN, LOW);
@@ -355,7 +371,7 @@ class LiquidLevel{
     #define HIGH_FULL 95
 
     /// detect when level is crossing certain points, standard state machine - syntax like PLC code.
-    if(levelStatus == 0 ){            /// EMPTY
+    /*if(levelStatus == 0 ){            /// EMPTY
       if(this->percent > EMPTY_LOW){
         levelStatus = 1;
         #ifdef PRINT_STATE
@@ -412,9 +428,9 @@ class LiquidLevel{
         #ifdef PRINT_STATE
         Serial.println(" Tank: HIGH - FULL - FALLING ");
         #endif
-      }
+      }*/
 
-    }
+    //}
 
     if(verboseMode){
     #ifdef PRINT_STATUS
@@ -475,14 +491,7 @@ class LiquidLevel{
 
    return returnInt;  
   }
-  /**
-   * @brief Return filtered liters string for displaying purposes
-   * 
-   * @return String 
-   */
-  String getLitersStr(){
-    return String(filteredLiters);
-  }
+
   /**
    * @brief Return string with current measurement values
    * 
@@ -490,13 +499,13 @@ class LiquidLevel{
    */
   String getInfoStr(){
     /// TankLevel/ TankLiters/ Flow/ TMUntilEmpty/ SpentWater/ AverageFlow/ DischStarted/ Last fill time/ 
-    return String(this->percent) + "/" + String(this->filteredLiters) + "/" + "01:23:45" + "/"+ String(this->flow) + "/" + String(111) + "/" + String(222) + "/" + String(1234567) + "/" + String(98765432)+ "/" + String(12.5) + "/" + + "192.168.1.1";
+    return String(this->submergedPercent) + "/" + String(this->litersInReservoir) + "/" + "01:23:45" + "/"+ String(this->flow) + "/" + String(111) + "/" + String(222) +  "/" + String(1234567) + "/" + String(98765432)+ "/" + String(12.5) + "/" + String(filteredFreq) + "/" + "192.168.1.1" + "/" + String(this->sensorSubmergedmm);
   }/**
    * @brief Set the Total Out object
    * 
    * @param totalOut 
    */
   void setTotalOut(double totalOut){
-    this->totalWaterOut = totalOut;
+    this->totalWaterUsed = totalOut;
     }
 };

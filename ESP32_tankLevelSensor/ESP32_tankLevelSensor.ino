@@ -22,6 +22,7 @@
 #include "kFilt.h"
 #include "lutFreqTransform.h"
 #include "max7219.h"            /// containing methods for displaying stuff on 8x 7seg display
+#include "eeprom.h"
 #include "liquidLevel.h"        /// containing liquid level class for processing cap. sensor data
 
 const char* hotspotSSID = "Water level sensor";   /// ESP hotspot name
@@ -207,7 +208,7 @@ void loop() {
   delay(_mainLoopDelay);           /// delay
   levelSens.update();              /// update display values
   readVpVoltage();
-  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.getTTedgeInt(), -1, levelSens.avgFreq, readVpVoltage(), (int)(lut1Outputmms), (int)(lut2Outputmms));
+  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.getTTedgeInt(), -1, levelSens.filteredFreq, readVpVoltage(), (int)(lut1Outputmms), (int)(lut2Outputmms));
 
   
   if (digitalRead(CALIB_SWITCH_PIN)) {  /// switch for calibration
