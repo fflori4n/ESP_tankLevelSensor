@@ -178,6 +178,10 @@ const char *indexStr = QUOTE(
     background: repeating-linear-gradient(45deg,#606cbc00,#606cbc00 10px,#ffcf22 10px,#ffcf22 20px);
     display: block;
 }
+a {
+  color: blue;
+  text-decoration: none; /* no underline */
+}
     </style>
 </head>
 <body>
@@ -244,14 +248,25 @@ const char *indexStr = QUOTE(
       <div id="voltage" class="value">0</div>
       <div class="unit">[ V ]</div>
     </div>
+        <br><br>
         <div class="row">
       <div class="label">Ažurirano:</div>
       <div id="refreshed" class="value">00:00:00</div>
       <div class="unit">[ H:M:S ]</div>
     </div>
         <div class="row">
+      <div class="label">Merena visina:</div>
+      <div id="sensorSubmerged" class="value">0</div>
+      <div class="unit">[ mm ]</div>
+    </div>
+        <div class="row">
+      <div class="label">Senzor</div>
+      <div id="freqDbg" class="value">0</div>
+      <div class="unit">[ br ]</div>
+    </div>
+        <div class="row">
       <div class="label">IP adresa:</div>
-      <div id="ipAddr" class="value">192.168.4.1</div>
+            <a href="http://192.168.4.1"><div id="ipAddr" class="value">192.168.4.1</div></a>
       <div class="unit"></div>
     </div>
     </div>
@@ -263,7 +278,7 @@ const char *indexStr = QUOTE(
         const arrowDown = document.querySelector('.triangle-down');
         const waterLevel = document.querySelector('.water-level');
         const offlineFlag = document.querySelector('.dev-offline');
-        var level = 0,liters = 0,timeUntil="00:00:00",flow=0,outflow=0,inflow=0,measured=0,total=0,voltage=0, ipAddresa = "";
+        var level = 0,liters = 0,timeUntil="00:00:00",flow=0,outflow=0,inflow=0,measured=0,total=0,voltage=0, ipAddresa = "", freqDbg=0, sensorSubmerged = 0;
         var offlineCounter = 0;
 
     function nFormatter(num, digits) {
@@ -296,10 +311,12 @@ const char *indexStr = QUOTE(
             flow = parseFloat(infoArray[3]);
             outflow = parseFloat(infoArray[4]);
             inflow = parseFloat(infoArray[5]);
-            measured = parseFloat(infoArray[6]);
-            total = parseFloat(infoArray[7]);
+            measured = parseInt(infoArray[6]);
+            total = parseInt(infoArray[7]);
             voltage = parseFloat(infoArray[8]);
             ipAddresa = infoArray[9];
+            freqDbg = parseInt(infoArray[10]);
+            sensorSubmerged = parseInt(infoArray[11]);
 
             arrowUp.style.display = "none";
             arrowDown.style.display = "none";
@@ -346,6 +363,9 @@ const char *indexStr = QUOTE(
             document.getElementById('voltage').innerHTML = voltage;
             document.getElementById('refreshed').innerHTML = (new Date()).toLocaleTimeString('hr-HR');
             document.getElementById('ipAddr').innerHTML = ipAddresa;
+            document.getElementById('sensorSubmerged').innerHTML = sensorSubmerged;
+            document.getElementById('freqDbg').innerHTML = freqDbg;
+            
       
         }
         else{

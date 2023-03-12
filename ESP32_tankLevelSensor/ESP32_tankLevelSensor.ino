@@ -28,6 +28,7 @@
 const char* hotspotSSID = "Water level sensor";   /// ESP hotspot name
 const char* hotspotPasswd = "123456789";          /// ESP hotspot passwd
 
+
 DNSServer dnsServer;                              /// create DNS server
 AsyncWebServer server(80);                        /// create webserver on port 80 - AsyncWebServer
 
@@ -61,10 +62,6 @@ class CaptiveRequestHandler : public AsyncWebHandler {  /// Captive access point
     }
 
     void handleRequest(AsyncWebServerRequest *request) {
-      /*Serial.print("request for: ");
-        Serial.print(request->host().c_str());
-        Serial.print(" ");
-        Serial.println(request->url().c_str());*/
       request->send(200, "text/html", String(indexStr).c_str());
     }
 };
@@ -127,15 +124,31 @@ void setup() {
 
   Serial.print("Setting AP (Access Point)");
 
-  IPAddress IP = WiFi.softAPIP();
+
+  
+  /*IPAddress IP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
+ // ipAddrString = IP.toString();
   Serial.println(IP);
 
   Serial.println(".");
 
   // Print ESP32 Local IP Address
   Serial.println(WiFi.localIP());
-  WiFi.softAP(hotspotSSID, hotspotPasswd);    /// Start ESP Wifi hotspot
+  WiFi.softAP(hotspotSSID, hotspotPasswd);    /// Start ESP Wifi hotspot*/
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(hotspotSSID, hotspotPasswd);
+  Serial.println("Wait 100 ms for AP_START...");
+  delay(100);
+  
+  if(!WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0))){
+      Serial.println("AP Config Failed");
+  }
+  IPAddress myIP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(myIP);
+
   dnsServer.start(53, "*", WiFi.softAPIP());  /// Start DNS server
 
   /*server.on("/currentLevel", HTTP_GET, [](AsyncWebServerRequest *request){    /// If you get html get request for /currentlevel, respond with text: levelSens.getLitersStr().c_str()
@@ -250,6 +263,16 @@ void loop() {
           if(displayPages == 11 && confirmAction() && confirmAction()){
             levelSens.totalWaterUsed = 0;
           }
+        }
+        break;
+      case 5: /// clear total
+        if(buttonPressed == 2 && confirmAction()){
+            levelSens.averageFallingFlow = -10;
+        }
+        break;
+      case 6: /// clear total
+        if(buttonPressed == 2 && confirmAction()){
+            levelSens.averageRisingFlow = 10;
         }
         break;
       case 8:
