@@ -9,5 +9,5 @@ void writeToEEprom(uint16_t value, uint8_t addrLow, uint8_t addrHigh, int noUpda
 }
 
 double readEEprom(uint8_t addrLow, uint8_t addrHigh){
-  return (uint16_t)(EEPROM.read(addrHigh) << 8) | (EEPROM.read(addrLow) & 0xff);
+  return ((EEPROM.read(addrHigh) << 8) | (EEPROM.read(addrLow) & 0xff));
 }

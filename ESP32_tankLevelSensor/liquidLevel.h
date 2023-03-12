@@ -1,4 +1,4 @@
-
+double batVoltage = 0;
 class LiquidLevel{
   /// define memory locations in EEProm to contain total out and average flow variables
   /// flags for printing debug messeges 
@@ -13,6 +13,8 @@ class LiquidLevel{
   #define SENS_MAX_LENGTHmm 1040
   
   private:
+
+    
     
   public:
 
@@ -46,14 +48,12 @@ class LiquidLevel{
     double ttEdge = 0;
     double ttEdgeAvgOpen = 0;
 
-   // double totalWaterOut = 0;
-   // double totalWaterOutFLSH = 0;
     double avrgOutFlow=0;
 
-   double totalWaterUsed = 0;
-   double measuredWaterUsed = 0;
-   double averageFallingFlow = 0;
-   double averageRisingFlow = 0;
+    double totalWaterUsed = 0;
+    double measuredWaterUsed = 0;
+    double averageFallingFlow = -10;
+    double averageRisingFlow = 10;
    
 
     unsigned int flowStatus = 0; /// 0 - STATIC, 1 - OUT, 2 - IN
@@ -171,16 +171,15 @@ class LiquidLevel{
     #define EEPROM_RISING_FLOW_L 7
     
     void saveToEEPROM(){
-      #define _maxLogRate 1
+      #define SHORT_LOG_PERIOD 15
+      #define LONG_LOG_PERIOD (15*60)
+      #define _maxLogRate (60/15)
       #define _minLogRate 60
       //#define _periodicLog false
       #define PRINT_LOGDBG
 
-      static unsigned int minLogInterval = _maxLogRate * 60;
-
-      unsigned int logLimit = constrain(map(abs(flow),150,0,_maxLogRate * 60,_minLogRate * 60),_maxLogRate * 60,_minLogRate * 60);
-      
-
+      static unsigned int minLogInterval = SHORT_LOG_PERIOD;
+      unsigned int logLimit = constrain(map(abs(flow),50,0,SHORT_LOG_PERIOD,LONG_LOG_PERIOD),SHORT_LOG_PERIOD,LONG_LOG_PERIOD);
       minLogInterval = min(minLogInterval, logLimit);
       
       #ifdef PRINT_LOGDBG
@@ -198,10 +197,10 @@ class LiquidLevel{
         minLogInterval = _minLogRate * 60;
         Serial.println("LOG LOG");
 
-        writeToEEprom(this->totalWaterUsed, EEPROM_TOTAL_WATER_USED_L, EEPROM_TOTAL_WATER_USED_H, 1);
-        writeToEEprom(++this->measuredWaterUsed, EEPROM_MEASURED_WATER_USED_L, EEPROM_MEASURED_WATER_USED_H, 1);
-        writeToEEprom(++this->averageFallingFlow, EEPROM_FALLING_FLOW_L, EEPROM_FALLING_FLOW_H, 1);
-        writeToEEprom(++this->averageRisingFlow, EEPROM_RISING_FLOW_L, EEPROM_RISING_FLOW_H, 1);
+        writeToEEprom(this->totalWaterUsed, EEPROM_TOTAL_WATER_USED_L, EEPROM_TOTAL_WATER_USED_H, 0);
+        writeToEEprom(this->measuredWaterUsed, EEPROM_MEASURED_WATER_USED_L, EEPROM_MEASURED_WATER_USED_H, 0);
+        writeToEEprom((this->averageFallingFlow*100), EEPROM_FALLING_FLOW_L, EEPROM_FALLING_FLOW_H, 0);
+        writeToEEprom((this->averageRisingFlow*100), EEPROM_RISING_FLOW_L, EEPROM_RISING_FLOW_H, 0);
 
         /*totalWaterOutFLSH = totalWaterOut;
         Serial.print("writing total Out to EEPROM: ");
@@ -244,8 +243,8 @@ average rising flow: 0.00
     void loadEEPROM(){
       this->totalWaterUsed = readEEprom(EEPROM_TOTAL_WATER_USED_L, EEPROM_TOTAL_WATER_USED_H);
       this->measuredWaterUsed = readEEprom(EEPROM_MEASURED_WATER_USED_L, EEPROM_MEASURED_WATER_USED_H);
-      this->averageFallingFlow = readEEprom(EEPROM_FALLING_FLOW_L, EEPROM_FALLING_FLOW_H);
-      this->averageRisingFlow = readEEprom(EEPROM_RISING_FLOW_L,EEPROM_RISING_FLOW_H);
+      this->averageFallingFlow = ((double)readEEprom(EEPROM_FALLING_FLOW_L, EEPROM_FALLING_FLOW_H))/100;
+      this->averageRisingFlow = ((double)readEEprom(EEPROM_RISING_FLOW_L,EEPROM_RISING_FLOW_H))/100;
       Serial.print("total water used: ");
       Serial.println(this->totalWaterUsed);
       Serial.print("measured water used: ");
@@ -275,8 +274,8 @@ average rising flow: 0.00
     #define SENS_TOP_OFFSET 0
     #define SENS_MAX_LENGTHmm 1040
 
-    #define MIN_OPENFLOW_FALLING -20
-    #define MIN_OPENFLOW_RISING 20
+    #define MIN_OPENFLOW_FALLING -10
+    #define MIN_OPENFLOW_RISING 10
 
     #define RESERVOIR_EMPTY_LITERS 0
     #define RESERVOIR_FULL_LITERS 2000
@@ -310,8 +309,8 @@ average rising flow: 0.00
       Serial.print("newFlow:");
       Serial.println(newFlow);
 
-      #define RISING_FILTERVAL 1/20    
-      #define FALLING_FILTERVAL 1/10 /// 1/n average last n
+      #define RISING_FILTERVAL 0.1    
+      #define FALLING_FILTERVAL 0.1 /// 1/n average last n
       
       /// apply non uniform filtering, idea like AIMD algorithm, flow can decrease fast, but can only increase slowly 
       if(abs(newFlow) < abs(this->flow)){   /// if flow is decreasing filter less
@@ -323,6 +322,11 @@ average rising flow: 0.00
         this->flow =(0.9 * this->flow) + (0.005 * newFlow); //(0.80 * this->flow) + (0.2 * newFlow) ;
       }
 
+      if(flow < MIN_OPENFLOW_FALLING){
+        Serial.println("adding liters");
+        totalWaterUsed += abs(dLiters);
+        measuredWaterUsed+= abs(dLiters);
+      }
       
     }
 
@@ -338,6 +342,9 @@ average rising flow: 0.00
       #endif
     }
     else if(flow < MIN_OPENFLOW_FALLING){                                       /// flow is not static - water level decreasing
+
+        this->averageFallingFlow = ((1 - FALLING_FILTERVAL) * this->averageFallingFlow) + (FALLING_FILTERVAL * this->flow);
+        
         this->avrgOutFlow = (this->avrgOutFlow * 0.8) + (this->flow * 0.2);     /// calculate average flow out - only if level is descending AND save to EEPROM
         this->ttEdge = abs((RESERVOIR_EMPTY_LITERS - this->litersInReservoir) / flow);              /// calculate estimated time until reservoir is empty based on current flow
         this->ttEdgeAvgOpen = abs((RESERVOIR_EMPTY_LITERS - this->litersInReservoir)/this->avrgOutFlow);/// calculate estimated time until reservoir is empty based on average flow
@@ -350,6 +357,9 @@ average rising flow: 0.00
         #endif
     }
     else{                                                                   /// flow is not static - water level increasing
+
+        this->averageRisingFlow = ((1 - RISING_FILTERVAL) * this->averageRisingFlow) + (RISING_FILTERVAL * this->flow);
+        
         this->ttEdge = abs((RESERVOIR_FULL_LITERS - this->litersInReservoir) / flow);           /// calculate estimated time until reservoir is full based on current flow
         flowStatus = 2;                                                     /// 0 - STATIC, 1 - OUT, 2 - IN
         digitalWrite(LED_BLUE, HIGH);
@@ -499,7 +509,7 @@ average rising flow: 0.00
    */
   String getInfoStr(){
     /// TankLevel/ TankLiters/ Flow/ TMUntilEmpty/ SpentWater/ AverageFlow/ DischStarted/ Last fill time/ 
-    return String(this->submergedPercent) + "/" + String(this->litersInReservoir) + "/" + "01:23:45" + "/"+ String(this->flow) + "/" + String(111) + "/" + String(222) +  "/" + String(1234567) + "/" + String(98765432)+ "/" + String(12.5) + "/" + String(filteredFreq) + "/" + "192.168.1.1" + "/" + String(this->sensorSubmergedmm);
+    return String(this->submergedPercent*100) + "/" + String(this->litersInReservoir) + "/" + "01:23:45" + "/"+ String(this->flow) + "/" + String(111) + "/" + String(222) +  "/" + String(this->measuredWaterUsed) + "/" + String(this->totalWaterUsed)+ "/" + String(batVoltage/100) + "/" + String(filteredFreq) + "/" + "192.168.1.1" + "/" + String(this->sensorSubmergedmm);
   }/**
    * @brief Set the Total Out object
    * 

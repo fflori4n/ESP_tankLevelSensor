@@ -80,6 +80,21 @@ class Display8x8 {
 #define NUMOF_8x8DISP_MODULES 2
   private:
 
+    char getDigit(int value, int digit, bool useSpace = false){
+      if(digit == -1){ /// return sign
+        if(value < 0){
+          return '-';
+        }
+        return ' ';
+      }
+      if(useSpace && ('0' + (abs(value)%((int)pow(10,(digit + 1))))/ ((int)pow(10, digit))) == '0'){
+        if(value/(int)pow(10, digit + 1) == 0){
+          return ' ';
+        }
+      }
+      return '0' + (abs(value)%((int)pow(10,(digit + 1))))/ ((int)pow(10, digit));
+    }
+
     void blankDispMem(byte numOfDisplays) {
 #define dispLen 8
       for (byte i = 1; i < dispLen + 1; i++) {
@@ -183,14 +198,11 @@ class Display8x8 {
         writeChar((j + 1), char1, char2, decBuff[j], decBuff[j + 8]);
       }
     }
-    void printMenu(byte page, unsigned int percent, int flow, int secsTTedge, int lvlStatus, int freq, int batv, int nonCorrectedLut, int correctedLut) {
+    void printMenu(byte page, unsigned int percent, double flow, int secsTTedge, int lvlStatus, int freq, int batv, int nonCorrectedLut, int correctedLut, int total, int measured, int fallingFlow, int risingFlow) {
       char char1, char2;
       char printBuff[] = "                ";
       char decBuff[] = "                ";
 
-
-      char lvl3 = ' ', lvl2 = ' ', lvl1 = ' ', lvl0 = ' ';
-      char flow2 = ' ', flow1 = ' ', flow0 = ' ', flowSgn = ' ';
       char levelStatusChar = ' ';
       char ttmin1 = ' ', ttmin0 = ' ', ttsec1 = ' ', ttsec0 = ' ';
       char ttAverageSgn = 'A';
@@ -199,14 +211,6 @@ class Display8x8 {
       //char * wifiEnabledStr = "OFF";
       
       percent = constrain((percent), 0, 1000);
-      lvl0 = '0' + (percent % 10);
-      lvl1 = '0' + (percent % 100) / 10;
-      if (percent > 99) {
-        lvl2 = '0' + (percent % 1000) / 100;
-      }
-      if (percent > 999) {
-        lvl3 = '0' + (percent % 10000) / 1000;
-      }
 
       levelStatusChar = '~';
       if (abs(flow) >= 50) {
@@ -225,18 +229,7 @@ class Display8x8 {
       }
 
 
-      flow = constrain(flow, -999, 999);
-      if (flow < 0) {
-        flowSgn = '-';
-      }
-      flow = abs(flow);
-      flow0 = '0' + (flow % 10);
-      if (flow > 10) {
-        flow1 = '0' + ((flow % 100) / 10);
-      }
-      if (flow > 100) {
-        flow2 = '0' + ((flow % 1000) / 100);
-      }
+      flow = constrain(flow*100, -99999, 99999);
 
       ttsec0 = '0' + (secsTTedge % 10); //((secsTTedge % 60) % 10);
       ttsec1 = '0' + (secsTTedge % 100) / 10; //((secsTTedge % 60) / 10);
@@ -253,7 +246,7 @@ class Display8x8 {
               snprintf(printBuff, 17, "SENS    FAULT   ");
             }
             else{
-              snprintf(printBuff, 17, "%c%c%c%c%c%c%c%c%c%c %c%c %c%c", flowSgn, flow2, flow1, flow0, lvl3, lvl2, lvl1, lvl0, levelStatusChar, ttAverageSgn, ttmin1, ttmin0, ttsec1, ttsec0);
+              snprintf(printBuff, 17, "%c%c%c%c%c%c%c%c%c%c %c%c %c%c", getDigit(flow, -1), getDigit(flow, 4, true), getDigit(flow, 3, true), getDigit(flow, 2), getDigit(percent, 3, true), getDigit(percent, 2, true), getDigit(percent, 1), getDigit(percent, 0), levelStatusChar, ttAverageSgn, ttmin1, ttmin0, ttsec1, ttsec0);
               setDecPoint(decBuff, 6);
             } 
           }
@@ -263,29 +256,34 @@ class Display8x8 {
           setDecPoint(decBuff, 9);
           break;
         case 2: /// print battery voltage
-          snprintf(printBuff, 17, "LOG  %c%c%c%c", flowSgn, flow2, flow1, flow0);
+          snprintf(printBuff, 17, "LOG     %c%c%c%c%c%c%c%c",getDigit(measured, 7, true),getDigit(measured, 6, true),getDigit(measured, 5, true),getDigit(measured, 4, true), getDigit(measured, 3, true),getDigit(measured, 2, true),getDigit(measured, 1, true),getDigit(measured, 0));
           break;
         case 3: ///
-          snprintf(printBuff, 17, "totAL %c%c%c%c", flowSgn, flow2, flow1, flow0);
+          snprintf(printBuff, 17, "totAL   %c%c%c%c%c%c%c%c",getDigit(total, 7, true),getDigit(total, 6, true),getDigit(total, 5, true),getDigit(total, 4, true), getDigit(total, 3, true),getDigit(total, 2, true),getDigit(total, 1, true),getDigit(total, 0));
           break;
         case 4:
-          snprintf(printBuff, 17, "FLOLW %c%c%c%c", flowSgn, flow2, flow1, flow0);
+          snprintf(printBuff, 17, "FLOLW     %c%c%c%c%c%c", getDigit(flow, -1),getDigit(flow, 4, true), getDigit(flow, 3, true), getDigit(flow, 2), getDigit(flow, 1), getDigit(flow, 0));
+          setDecPoint(decBuff, 13);
           break;
         case 5:
-          snprintf(printBuff, 17, "WIFI    %s", wifiEnabledStr);
+          snprintf(printBuff, 17, "NAF       %c%c%c%c%c%c", getDigit(fallingFlow, -1),getDigit(fallingFlow, 4, true), getDigit(fallingFlow, 3, true), getDigit(fallingFlow, 2), getDigit(fallingFlow, 1), getDigit(fallingFlow, 0));
+          setDecPoint(decBuff, 13);
           break;
         case 6:
-          snprintf(printBuff, 17, "               .");
+          snprintf(printBuff, 17, "PAF       %c%c%c%c%c%c", getDigit(risingFlow, -1),getDigit(risingFlow, 4, true),getDigit(risingFlow, 3, true),getDigit(risingFlow, 2),getDigit(risingFlow, 1),getDigit(risingFlow, 0));
+          setDecPoint(decBuff, 13);
           break;
-        case 7: /// blank
-          snprintf(printBuff, 17, "FREQ    %d%d%d%d%d%d%d%d", (freq % 100000000) / 10000000, (freq % 10000000) / 1000000, (freq % 1000000) / 100000, (freq % 100000) / 10000, (freq % 10000) / 1000, (freq % 1000) / 100, (freq % 100) / 10, (freq % 10));
+        case 7:
+          snprintf(printBuff, 17, "WIFI    %s", wifiEnabledStr);
           break;
         case 8:
-          snprintf(printBuff, 17, "C   %d%d%d%dL   %d%d%d%d",(nonCorrectedLut % 10000) / 1000, (nonCorrectedLut % 1000) / 100, (nonCorrectedLut % 100) / 10, (nonCorrectedLut % 10),  (correctedLut % 10000) / 1000, (correctedLut % 1000) / 100, (correctedLut % 100) / 10, (correctedLut % 10));
+          snprintf(printBuff, 17, "               .");
           break;
-
-        case 99:
-          snprintf(printBuff, 17, "........        ");
+        case 9: /// blank
+          snprintf(printBuff, 17, "FREQ    %c%c%c%c%c%c%c%c", getDigit(freq, 7, true), getDigit(freq, 6, true), getDigit(freq, 5, true), getDigit(freq, 4, true), getDigit(freq, 3, true), getDigit(freq, 2, true), getDigit(freq, 1, true), getDigit(freq, 0));
+          break;
+        case 10:
+          snprintf(printBuff, 17, "C %c%c%c%c%c%cL %c%c%c%c%c%c",getDigit(nonCorrectedLut, 5, true),getDigit(nonCorrectedLut, 4, true),getDigit(nonCorrectedLut, 3, true), getDigit(nonCorrectedLut, 2, true), getDigit(nonCorrectedLut, 1, true), getDigit(nonCorrectedLut, 0), getDigit(correctedLut, 5, true),getDigit(correctedLut, 4, true) ,getDigit(correctedLut, 3, true), getDigit(correctedLut, 2, true), getDigit(correctedLut, 1, true), getDigit(correctedLut, 0));
           break;
       }
 

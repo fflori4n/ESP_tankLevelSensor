@@ -42,7 +42,8 @@ volatile int buttonPressed = 0;
 
 int dispMenuNumber = 0;
 bool editMode = false;
-byte displayPages = 7;
+byte displayPages = 9;
+
 
 /// TIMER ISR SETUP
 hw_timer_t * timer = NULL;
@@ -207,9 +208,8 @@ void loop() {
 
   delay(_mainLoopDelay);           /// delay
   levelSens.update();              /// update display values
-  readVpVoltage();
-  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.getTTedgeInt(), -1, levelSens.filteredFreq, readVpVoltage(), (int)(lut1Outputmms), (int)(lut2Outputmms));
-
+  batVoltage = readVpVoltage();
+  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.getTTedgeInt(), -1, levelSens.filteredFreq, batVoltage, (int)(lut1Outputmms), (int)(lut2Outputmms),(int)levelSens.totalWaterUsed, (int)levelSens.measuredWaterUsed, (int)(levelSens.averageFallingFlow*100), (int)(levelSens.averageRisingFlow*100));
   
   if (digitalRead(CALIB_SWITCH_PIN)) {  /// switch for calibration
     digitalWrite(LED_GREEN, HIGH);
@@ -236,6 +236,7 @@ void loop() {
         if(buttonPressed == 2){
           Serial.println("confirm log clear!");
           if(confirmAction()){
+            levelSens.measuredWaterUsed = 0;
             Serial.println("clear");
           }
           else{
@@ -243,15 +244,23 @@ void loop() {
           }
         }
         break;
-      case 6:
+       case 3: /// clear total
+        if(buttonPressed == 2){
+          Serial.println("confirm log clear!");
+          if(displayPages == 11 && confirmAction() && confirmAction()){
+            levelSens.totalWaterUsed = 0;
+          }
+        }
+        break;
+      case 8:
         if(buttonPressed == 2){
           if(confirmAction()){
-            if(displayPages == 9){
-              displayPages = 7;
+            if(displayPages == 11){
+              displayPages = 9;
               Serial.println("debug mode disabled!");
             }
             else{
-              displayPages = 9;
+              displayPages = 11;
               Serial.println("debug mode enabled!");
             }
           }
