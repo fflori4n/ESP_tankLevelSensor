@@ -231,6 +231,15 @@ class Display8x8 {
 
       flow = constrain(flow*100, -99999, 99999);
 
+      byte tteHours = ((secsTTedge % (24*3600))/3600);
+      byte tteMinutes = (secsTTedge % 3600)/60;
+      byte tteSeconds = secsTTedge % 60;
+
+      if(tteHours >= 1){
+        tteMinutes = 59;
+        tteSeconds = 59;
+      }
+
       ttsec0 = '0' + (secsTTedge % 10); //((secsTTedge % 60) % 10);
       ttsec1 = '0' + (secsTTedge % 100) / 10; //((secsTTedge % 60) / 10);
       ttmin0 = '0' + (secsTTedge % 1000) / 100; //((secsTTedge / 60) % 10);
@@ -246,14 +255,15 @@ class Display8x8 {
               snprintf(printBuff, 17, "SENS    FAULT   ");
             }
             else{
-              snprintf(printBuff, 17, "%c%c%c%c%c%c%c%c%c%c %c%c %c%c", getDigit(flow, -1), getDigit(flow, 4, true), getDigit(flow, 3, true), getDigit(flow, 2), getDigit(percent, 3, true), getDigit(percent, 2, true), getDigit(percent, 1), getDigit(percent, 0), levelStatusChar, ttAverageSgn, ttmin1, ttmin0, ttsec1, ttsec0);
+              snprintf(printBuff, 17, "%c%c%c%c%c%c%c%c%c%c %c%c %c%c", getDigit(flow, -1), getDigit(flow, 4, true), getDigit(flow, 3, true), getDigit(flow, 2), getDigit(percent, 3, true), getDigit(percent, 2, true), getDigit(percent, 1), getDigit(percent, 0), levelStatusChar, ttAverageSgn, getDigit(tteMinutes,1), getDigit(tteMinutes,0), getDigit(tteSeconds,1), getDigit(tteSeconds,0));
               setDecPoint(decBuff, 6);
             } 
           }
           break;
         case 1: /// view raw counts from probe
-          snprintf(printBuff, 17, "BAt     %d%d%d%d  ", ((batv % 10000) / 1000), ((batv % 1000) / 100), ((batv % 100) / 10), (batv % 10));
-          setDecPoint(decBuff, 9);
+          snprintf(printBuff, 17, "BAt %d%d%d%d           ", ((batv % 10000) / 1000), ((batv % 1000) / 100), ((batv % 100) / 10), (batv % 10));
+          setDecPoint(decBuff, 5);
+          setDecPoint(decBuff, 13);
           break;
         case 2: /// print battery voltage
           snprintf(printBuff, 17, "LOG     %c%c%c%c%c%c%c%c",getDigit(measured, 7, true),getDigit(measured, 6, true),getDigit(measured, 5, true),getDigit(measured, 4, true), getDigit(measured, 3, true),getDigit(measured, 2, true),getDigit(measured, 1, true),getDigit(measured, 0));

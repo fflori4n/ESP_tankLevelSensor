@@ -124,19 +124,6 @@ void setup() {
 
   Serial.print("Setting AP (Access Point)");
 
-
-  
-  /*IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
- // ipAddrString = IP.toString();
-  Serial.println(IP);
-
-  Serial.println(".");
-
-  // Print ESP32 Local IP Address
-  Serial.println(WiFi.localIP());
-  WiFi.softAP(hotspotSSID, hotspotPasswd);    /// Start ESP Wifi hotspot*/
-
   WiFi.mode(WIFI_AP);
   WiFi.softAP(hotspotSSID, hotspotPasswd);
   Serial.println("Wait 100 ms for AP_START...");
@@ -222,7 +209,7 @@ void loop() {
   delay(_mainLoopDelay);           /// delay
   levelSens.update();              /// update display values
   batVoltage = readVpVoltage();
-  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.getTTedgeInt(), -1, levelSens.filteredFreq, batVoltage, (int)(lut1Outputmms), (int)(lut2Outputmms),(int)levelSens.totalWaterUsed, (int)levelSens.measuredWaterUsed, (int)(levelSens.averageFallingFlow*100), (int)(levelSens.averageRisingFlow*100));
+  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.ttEdgeSecs, -1, levelSens.filteredFreq, batVoltage, (int)(lut1Outputmms), (int)(lut2Outputmms),(int)levelSens.totalWaterUsed, (int)levelSens.measuredWaterUsed, (int)(levelSens.averageFallingFlow*100), (int)(levelSens.averageRisingFlow*100));
   
   if (digitalRead(CALIB_SWITCH_PIN)) {  /// switch for calibration
     digitalWrite(LED_GREEN, HIGH);

@@ -473,7 +473,7 @@ class LiquidLevel{
    * xxx11 - seconds until empty
    * @return int 
    */
-  int getTTedgeInt(){
+  /*int getTTedgeInt(){
    int returnInt = 0;
    int ttEdgeSeconsd = this->ttEdgeSecs; /// ttEdge seconds = ttEdge (type double in minutes) * 60
 
@@ -482,7 +482,7 @@ class LiquidLevel{
    }
    else{
    
-   }*/
+   }
    if(flowStatus != 0){
      returnInt += 10000; /// blank letter A to indicate current flow, not average open flow
    }
@@ -490,6 +490,14 @@ class LiquidLevel{
    returnInt += (ttEdgeSeconsd/60)*100;
 
    return returnInt;  
+  }*/
+
+  String getRemainingTimeString(int remainingSeconds){
+    byte hours = ((remainingSeconds % (24*3600))/3600);
+    byte minutes = (remainingSeconds % 3600)/60;
+    byte seconds = remainingSeconds % 60;
+
+    return String(hours) + ":" + String(minutes) + ":" + String(seconds);
   }
 
   /**
@@ -499,7 +507,7 @@ class LiquidLevel{
    */
   String getInfoStr(){
     /// TankLevel/ TankLiters/ Flow/ TMUntilEmpty/ SpentWater/ AverageFlow/ DischStarted/ Last fill time/ 
-    return String(this->submergedPercent*100) + "/" + String(this->litersInReservoir) + "/" + String(this->ttEdgeSecs) + "/"+ String(this->flow) + "/" + String(this->averageFallingFlow) + "/" + String(this->averageRisingFlow) +  "/" + String(this->measuredWaterUsed) + "/" + String(this->totalWaterUsed)+ "/" + String(batVoltage/100) + "/192.168.4.1/" + String(filteredFreq) + "/" + String(this->sensorSubmergedmm);
+    return String(this->submergedPercent*100) + "/" + String(this->litersInReservoir) + "/" + getRemainingTimeString(this->ttEdgeSecs) + "/"+ String(this->flow) + "/" + String(this->averageFallingFlow) + "/" + String(this->averageRisingFlow) +  "/" + String(this->measuredWaterUsed) + "/" + String(this->totalWaterUsed)+ "/" + String(batVoltage/100) + "/192.168.4.1/" + String(filteredFreq) + "/" + String(this->sensorSubmergedmm);
   }/**
    * @brief Set the Total Out object
    * 
