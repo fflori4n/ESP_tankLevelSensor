@@ -200,7 +200,7 @@ class Display8x8 {
         writeChar((j + 1), char1, char2, decBuff[j], decBuff[j + 8]);
       }
     }
-    void printMenu(byte page, unsigned int percent, double flow, int secsTTedge, int lvlStatus, int freq, int batv, int minBatVoltage, int nonCorrectedLut, int correctedLut, int total, int measured, int fallingFlow, int risingFlow) {
+    void printMenu(byte page, unsigned int percent, double flow, int secsTTedge, int lvlStatus, int freq, int batv, int minBatVoltage, int nonCorrectedLut, int correctedLut, int total, int measured, int fallingFlow, int risingFlow, int wifiEnabled) {
       char char1, char2;
       char printBuff[] = "                ";
       char decBuff[] = "                ";
@@ -290,10 +290,15 @@ class Display8x8 {
           setDecPoint(decBuff, 13);
           break;
         case 7:
-          snprintf(printBuff, 17, "WIFI    %s", wifiEnabledStr);
-          break;
-        case 8:
           snprintf(printBuff, 17, "               .");
+          break;
+         case 8:
+          if(wifiEnabled){
+            snprintf(printBuff, 17, "LWiFi         ON");
+          }
+          else{
+            snprintf(printBuff, 17, "LWiFi        OFF");
+          }
           break;
         case 9: /// blank
           snprintf(printBuff, 17, "FREQ    %c%c%c%c%c%c%c%c", getDigit(freq, 7, true), getDigit(freq, 6, true), getDigit(freq, 5, true), getDigit(freq, 4, true), getDigit(freq, 3, true), getDigit(freq, 2, true), getDigit(freq, 1, true), getDigit(freq, 0));

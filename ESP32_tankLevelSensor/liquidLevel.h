@@ -1,4 +1,6 @@
 double batVoltage = 0, minBatVoltage = 3000;
+int wifiEnabled = 1;
+
 class LiquidLevel{
   /// define memory locations in EEProm to contain total out and average flow variables
   /// flags for printing debug messeges 
@@ -177,8 +179,12 @@ class LiquidLevel{
     #define EEPROM_FALLING_FLOW_L 5
     #define EEPROM_RISING_FLOW_H 6
     #define EEPROM_RISING_FLOW_L 7
+    #define EEPROM_MINBATV_H 8
+    #define EEPROM_MINBATV_L 9
+    #define EEPROM_WIFIEN_H 10
+    #define EEPROM_WIFIEN_L 11
     
-    void saveToEEPROM(){
+    void saveToEEPROM(bool force = false){
       #define SHORT_LOG_PERIOD 15
       #define LONG_LOG_PERIOD (15*60)
       #define _maxLogRate (60/15)
@@ -200,7 +206,7 @@ class LiquidLevel{
       Serial.println(minLogInterval);
       #endif
       
-      if((logIntervalCounter > minLogInterval)){
+      if(force || (logIntervalCounter > minLogInterval)){
         logIntervalCounter = 0;
         minLogInterval = _minLogRate * 60;
        // Serial.println("LOG LOG");
@@ -209,6 +215,10 @@ class LiquidLevel{
         writeToEEprom(this->measuredWaterUsed, EEPROM_MEASURED_WATER_USED_L, EEPROM_MEASURED_WATER_USED_H, 0);
         writeToEEprom((this->averageFallingFlow*100), EEPROM_FALLING_FLOW_L, EEPROM_FALLING_FLOW_H, 0);
         writeToEEprom((this->averageRisingFlow*100), EEPROM_RISING_FLOW_L, EEPROM_RISING_FLOW_H, 0);
+
+        writeToEEprom((minBatVoltage), EEPROM_MINBATV_L, EEPROM_MINBATV_H, 0);
+        writeToEEprom((wifiEnabled), EEPROM_WIFIEN_L, EEPROM_WIFIEN_H, 0);  /// lol laziness = more memory used
+        
 
         /// signal EEPROM write using green LED
         digitalWrite(LED_GREEN, HIGH);
@@ -228,6 +238,8 @@ class LiquidLevel{
       this->measuredWaterUsed = readEEprom(EEPROM_MEASURED_WATER_USED_L, EEPROM_MEASURED_WATER_USED_H);
       this->averageFallingFlow = ((double)readEEprom(EEPROM_FALLING_FLOW_L, EEPROM_FALLING_FLOW_H))/100;
       this->averageRisingFlow = ((double)readEEprom(EEPROM_RISING_FLOW_L,EEPROM_RISING_FLOW_H))/100;
+      minBatVoltage = readEEprom(EEPROM_MINBATV_L, EEPROM_MINBATV_H);
+      wifiEnabled = readEEprom(EEPROM_WIFIEN_L, EEPROM_WIFIEN_H);
       Serial.print("total water used: ");
       Serial.println(this->totalWaterUsed);
       Serial.print("measured water used: ");
@@ -236,6 +248,10 @@ class LiquidLevel{
       Serial.println(this->averageFallingFlow);
       Serial.print("average rising flow: ");
       Serial.println(this->averageRisingFlow);
+      Serial.print("min bat: ");
+      Serial.println(minBatVoltage);
+      Serial.print("wifi: ");
+      Serial.println(wifiEnabled);
     }
     /*double mapf(double x, double in_min, double in_max, double out_min, double out_max){
       return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;

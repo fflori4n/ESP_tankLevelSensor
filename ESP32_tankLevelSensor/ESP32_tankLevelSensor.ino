@@ -43,7 +43,7 @@ volatile int buttonPressed = 0;
 
 int dispMenuNumber = 0;
 bool editMode = false;
-byte displayPages = 9;
+byte displayPages = 8;
 
 
 /// TIMER ISR SETUP
@@ -103,26 +103,27 @@ int readVpVoltage() {
 #define VP_SCALE 12.26/1182  /// real voltage / ADC value
 
   static int vp = 1350;
-  vp = (vp * 0.95) + ((VP_SCALE * analogRead(VPPIN) * 100) * 0.05);
+  int vpRaw = (VP_SCALE * analogRead(VPPIN) * 100);
+  vp = (vp * 0.95) + ( vpRaw * 0.05);
   /*Serial.print("VBAT| ");
     Serial.println(vp);
     Serial.print("ADC_BAT| ");
     Serial.println(analogRead(VPPIN));*/
+
+  if(vp < minBatVoltage){
+    minBatVoltage = vp;
+  }
   return vp;
 }
-
-
-void setup() {
-  Serial.begin(115200);           /// start DBG serial
-  EEPROM.begin(EEPROM_SIZE);      /// start EEprom
-  levelSens.loadEEPROM();         /// load max water out, average flow from uController EEPROM
-  pinMode(LED_BLUE, OUTPUT);      /// Set LED pins
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(CALIB_SWITCH_PIN, INPUT_PULLUP);      /// switch pin
-  digitalWrite(LED_BLUE, HIGH);
-  digitalWrite(LED_GREEN, HIGH);
-
-  Serial.print("Setting AP (Access Point)");
+void wifiStop(){
+   Serial.println("Disableing AP (Access Point)");
+   WiFi.mode(WIFI_MODE_STA);
+   WiFi.enableAP(false);
+   WiFi.softAPdisconnect();
+   WiFi.softAPdisconnect(false);
+}
+void wifiStart(){
+  Serial.println("Setting AP (Access Point)");
 
   WiFi.mode(WIFI_AP);
   WiFi.softAP(hotspotSSID, hotspotPasswd);
@@ -135,12 +136,8 @@ void setup() {
   IPAddress myIP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
   Serial.println(myIP);
-
   dnsServer.start(53, "*", WiFi.softAPIP());  /// Start DNS server
-
-  /*server.on("/currentLevel", HTTP_GET, [](AsyncWebServerRequest *request){    /// If you get html get request for /currentlevel, respond with text: levelSens.getLitersStr().c_str()
-    request->send_P(200, "text/html", levelSens.getLitersStr().c_str());
-    });*/
+  
   server.on("/info", HTTP_GET, [](AsyncWebServerRequest * request) {          /// /info ==> levelSens.getInfoStr().c_str()
     request->send_P(200, "text/html", levelSens.getInfoStr().c_str());
   });
@@ -158,6 +155,14 @@ void setup() {
   });
   server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);     ///Redirect every request to captive portal
   server.begin();                                                             /// Start webserver
+}
+void setup() {
+
+  pinMode(LED_BLUE, OUTPUT);      /// Set LED pins
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(CALIB_SWITCH_PIN, INPUT_PULLUP);      /// switch pin
+  digitalWrite(LED_BLUE, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
 
   pinMode(13, INPUT_PULLUP);                                                  /// Capacitive Sensor pin -> pull up
   attachInterrupt(13, isr, FALLING);                                          /// Capacitive pin falling edge -> trigger interrupt
@@ -168,6 +173,10 @@ void setup() {
   attachInterrupt(ENCODER_A_PIN, encoderCallback, CHANGE); // Need to detect both rising or falling signal
   attachInterrupt(ENCODER_B_PIN, encoderCallback, CHANGE);
   attachInterrupt(ENCODER_BTN, encoderCallback, CHANGE);
+  
+  Serial.begin(115200);           /// start DBG serial
+  EEPROM.begin(EEPROM_SIZE);      /// start EEprom
+  levelSens.loadEEPROM();         /// load max water out, average flow from uController EEPROM
 
   timer = timerBegin(0, 80, true);                                            /// Initialise timer interrupt for every 100ms
   timerAttachInterrupt(timer, &timerISR, true);
@@ -184,7 +193,9 @@ void setup() {
   displays.send2Disp(0x0c, 0x01, 0x01);   // Display : Shutdown 0x00 : On 0x01
   /// DISP INIT
 
-
+  if(wifiEnabled){
+    wifiStart();
+  }
 }
 bool confirmAction(){
 
@@ -210,16 +221,16 @@ void loop() {
 
   delay(_mainLoopDelay);           /// delay
   levelSens.update();              /// update display values
-  batVoltage = readVpVoltage();
+  
 
-  if(doNotUseMinimum <= 10){
+  if( doNotUseMinimum >= (5000/_mainLoopDelay)){
+    batVoltage = readVpVoltage();
+  }
+  else{
     doNotUseMinimum++;
   }
-  if( doNotUseMinimum >= 10 && batVoltage < minBatVoltage){
-    minBatVoltage = batVoltage;
-  }
   
-  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.ttEdgeSecs, -1, levelSens.filteredFreq, batVoltage, minBatVoltage, (int)(lut1Outputmms), (int)(lut2Outputmms),(int)levelSens.totalWaterUsed, (int)levelSens.measuredWaterUsed, (int)(levelSens.averageFallingFlow*100), (int)(levelSens.averageRisingFlow*100));
+  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.ttEdgeSecs, -1, levelSens.filteredFreq, batVoltage, minBatVoltage, (int)(lut1Outputmms), (int)(lut2Outputmms),(int)levelSens.totalWaterUsed, (int)levelSens.measuredWaterUsed, (int)(levelSens.averageFallingFlow*100), (int)(levelSens.averageRisingFlow*100), wifiEnabled);
   
   if (digitalRead(CALIB_SWITCH_PIN)) {  /// switch for calibration
     digitalWrite(LED_GREEN, HIGH);
@@ -243,55 +254,60 @@ void loop() {
   if(buttonPressed != 0){
     switch(dispMenuNumber){
       case 1: /// clear bat
-        if(buttonPressed == 2){
-          if(confirmAction()){
+        if(buttonPressed == 2 && confirmAction()){
             minBatVoltage = 9900;
             doNotUseMinimum = 0;
-          }
+            levelSens.saveToEEPROM(true);
         }
         break;
       case 2: /// clear total
-        if(buttonPressed == 2){
-          Serial.println("confirm log clear!");
-          if(confirmAction()){
+        if(buttonPressed == 2 && confirmAction()){
             levelSens.measuredWaterUsed = 0;
-            Serial.println("clear");
-          }
-          else{
-            Serial.println("no clear");
-          }
+            levelSens.saveToEEPROM(true);
         }
         break;
        case 3: /// clear total
-        if(buttonPressed == 2){
-          Serial.println("confirm log clear!");
-          if(displayPages == 11 && confirmAction() && confirmAction()){
+        if(displayPages == 11 && buttonPressed == 2 && confirmAction() && confirmAction()){
             levelSens.totalWaterUsed = 0;
-          }
+            levelSens.saveToEEPROM(true);
         }
         break;
       case 5: /// clear total
         if(buttonPressed == 2 && confirmAction()){
             levelSens.averageFallingFlow = -10;
+            levelSens.saveToEEPROM(true);
         }
         break;
       case 6: /// clear total
         if(buttonPressed == 2 && confirmAction()){
             levelSens.averageRisingFlow = 10;
+            levelSens.saveToEEPROM(true);
         }
         break;
-      case 8:
+      case 7:
         if(buttonPressed == 2){
           if(confirmAction()){
             if(displayPages == 11){
-              displayPages = 9;
-              Serial.println("debug mode disabled!");
+              displayPages = 8;
             }
             else{
               displayPages = 11;
               Serial.println("debug mode enabled!");
             }
           }
+        }
+        break;
+        case 8: /// clear total
+        if(buttonPressed == 2 && confirmAction()){
+          if(wifiEnabled != 0){
+            wifiEnabled = 0;
+            wifiStop();
+          }
+          else{
+            wifiEnabled = 1;
+            wifiStart();
+          } 
+          levelSens.saveToEEPROM(true);
         }
         break;
     }
@@ -301,7 +317,7 @@ void loop() {
     if (encoderInc != 0) {
       if ( (dispMenuNumber + encoderInc) >= 0 && (dispMenuNumber + encoderInc) < displayPages) {
         dispMenuNumber += encoderInc;
-        Serial.print(dispMenuNumber);
+        //Serial.print(dispMenuNumber);
       }
       encoderInc = 0;
     }
