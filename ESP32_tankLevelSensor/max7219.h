@@ -10,6 +10,8 @@ char simb7Seg[] = {
   '-', 0b00000001,
   '<', 0b00001000,
   '>', 0b01000000,
+  '^', 0b00100000,
+  '#', 0b00010000,
   '~', 0b00000001,
   '?', 0b11100001,
   '0', 0b01111110,
@@ -198,7 +200,7 @@ class Display8x8 {
         writeChar((j + 1), char1, char2, decBuff[j], decBuff[j + 8]);
       }
     }
-    void printMenu(byte page, unsigned int percent, double flow, int secsTTedge, int lvlStatus, int freq, int batv, int nonCorrectedLut, int correctedLut, int total, int measured, int fallingFlow, int risingFlow) {
+    void printMenu(byte page, unsigned int percent, double flow, int secsTTedge, int lvlStatus, int freq, int batv, int minBatVoltage, int nonCorrectedLut, int correctedLut, int total, int measured, int fallingFlow, int risingFlow) {
       char char1, char2;
       char printBuff[] = "                ";
       char decBuff[] = "                ";
@@ -212,21 +214,25 @@ class Display8x8 {
       
       percent = constrain((percent), 0, 1000);
 
+      ttAverageSgn = '#';
       levelStatusChar = '~';
-      if (abs(flow) >= 50) {
+      if (abs(flow) >= 20) {
         if (flow > 0) {
           levelStatusChar = '<';
+          ttAverageSgn = '^';
         }
         else {
           levelStatusChar = '>';
+          ttAverageSgn = '#';
         }
       }
-      if (secsTTedge / 10000 == 1) {
+      
+     /* if (secsTTedge / 10000 == 1) {
         ttAverageSgn = 'C';
         if (flow < 0) {
           ttAverageSgn = 'F';
         }
-      }
+      }*/
 
 
       flow = constrain(flow*100, -99999, 99999);
@@ -240,10 +246,10 @@ class Display8x8 {
         tteSeconds = 59;
       }
 
-      ttsec0 = '0' + (secsTTedge % 10); //((secsTTedge % 60) % 10);
+     /* ttsec0 = '0' + (secsTTedge % 10); //((secsTTedge % 60) % 10);
       ttsec1 = '0' + (secsTTedge % 100) / 10; //((secsTTedge % 60) / 10);
       ttmin0 = '0' + (secsTTedge % 1000) / 100; //((secsTTedge / 60) % 10);
-      ttmin1 = '0' + (secsTTedge % 10000) / 1000; //constrain(((secsTTedge / 60) / 10), 0, 9);
+      ttmin1 = '0' + (secsTTedge % 10000) / 1000; //constrain(((secsTTedge / 60) / 10), 0, 9);*/
 
       switch (page) {
         case 0: /// print status
@@ -261,7 +267,7 @@ class Display8x8 {
           }
           break;
         case 1: /// view raw counts from probe
-          snprintf(printBuff, 17, "BAt %d%d%d%d           ", ((batv % 10000) / 1000), ((batv % 1000) / 100), ((batv % 100) / 10), (batv % 10));
+          snprintf(printBuff, 17, "BAt %c%c%c%c    %c%c%c%c", getDigit(batv,3, true), getDigit(batv,2), getDigit(batv,1), getDigit(batv,0), getDigit(minBatVoltage,3, true), getDigit(minBatVoltage,2), getDigit(minBatVoltage,1), getDigit(minBatVoltage,0));
           setDecPoint(decBuff, 5);
           setDecPoint(decBuff, 13);
           break;

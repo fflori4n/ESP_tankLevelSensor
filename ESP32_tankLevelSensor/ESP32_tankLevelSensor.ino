@@ -204,12 +204,22 @@ bool confirmAction(){
   }
   return false;
 }
+
+int doNotUseMinimum = 0;
 void loop() {
 
   delay(_mainLoopDelay);           /// delay
   levelSens.update();              /// update display values
   batVoltage = readVpVoltage();
-  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.ttEdgeSecs, -1, levelSens.filteredFreq, batVoltage, (int)(lut1Outputmms), (int)(lut2Outputmms),(int)levelSens.totalWaterUsed, (int)levelSens.measuredWaterUsed, (int)(levelSens.averageFallingFlow*100), (int)(levelSens.averageRisingFlow*100));
+
+  if(doNotUseMinimum <= 10){
+    doNotUseMinimum++;
+  }
+  if( doNotUseMinimum >= 10 && batVoltage < minBatVoltage){
+    minBatVoltage = batVoltage;
+  }
+  
+  displays.printMenu(dispMenuNumber, (levelSens.percent * 10), levelSens.flow, levelSens.ttEdgeSecs, -1, levelSens.filteredFreq, batVoltage, minBatVoltage, (int)(lut1Outputmms), (int)(lut2Outputmms),(int)levelSens.totalWaterUsed, (int)levelSens.measuredWaterUsed, (int)(levelSens.averageFallingFlow*100), (int)(levelSens.averageRisingFlow*100));
   
   if (digitalRead(CALIB_SWITCH_PIN)) {  /// switch for calibration
     digitalWrite(LED_GREEN, HIGH);
@@ -232,6 +242,14 @@ void loop() {
 
   if(buttonPressed != 0){
     switch(dispMenuNumber){
+      case 1: /// clear bat
+        if(buttonPressed == 2){
+          if(confirmAction()){
+            minBatVoltage = 9900;
+            doNotUseMinimum = 0;
+          }
+        }
+        break;
       case 2: /// clear total
         if(buttonPressed == 2){
           Serial.println("confirm log clear!");

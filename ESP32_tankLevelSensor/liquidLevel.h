@@ -1,4 +1,4 @@
-double batVoltage = 0;
+double batVoltage = 0, minBatVoltage = 3000;
 class LiquidLevel{
   /// define memory locations in EEProm to contain total out and average flow variables
   /// flags for printing debug messeges 
@@ -203,7 +203,7 @@ class LiquidLevel{
       if((logIntervalCounter > minLogInterval)){
         logIntervalCounter = 0;
         minLogInterval = _minLogRate * 60;
-        Serial.println("LOG LOG");
+       // Serial.println("LOG LOG");
 
         writeToEEprom(this->totalWaterUsed, EEPROM_TOTAL_WATER_USED_L, EEPROM_TOTAL_WATER_USED_H, 0);
         writeToEEprom(this->measuredWaterUsed, EEPROM_MEASURED_WATER_USED_L, EEPROM_MEASURED_WATER_USED_H, 0);
@@ -288,10 +288,10 @@ class LiquidLevel{
 
       double newFlow = (dLiters*((1000*60)/this->flowDt));
       this->rawFlow = newFlow;
-      Serial.print("dliters:");
+      /*Serial.print("dliters:");
       Serial.println((dLiters));
       Serial.print("newFlow:");
-      Serial.println(newFlow);
+      Serial.println(newFlow);*/
 
       #define RISING_FILTERVAL 0.1    
       #define FALLING_FILTERVAL 0.1 /// 1/n average last n
@@ -307,7 +307,7 @@ class LiquidLevel{
       }
 
       if(flow < MIN_OPENFLOW_FALLING){
-        Serial.println("adding liters");
+        //Serial.println("adding liters");
         totalWaterUsed += abs(dLiters);
         measuredWaterUsed+= abs(dLiters);
       }
